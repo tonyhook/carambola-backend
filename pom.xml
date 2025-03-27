@@ -9,10 +9,10 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>cc.tonyhook.carambola</groupId>
-	<artifactId>backend</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
-	<name>backend</name>
-	<description>Demo project for Spring Boot</description>
+	<artifactId>carambola</artifactId>
+	<version>1.0</version>
+	<name>carambola</name>
+	<description>Carambola - An advertising traffic system</description>
 	<url/>
 	<licenses>
 		<license/>
@@ -71,6 +71,13 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<argLine>-Dspring.config.location=../conf/application.yml</argLine>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>
