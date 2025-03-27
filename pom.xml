@@ -79,6 +79,27 @@
 					<argLine>-Dspring.config.location=../conf/application.yml</argLine>
 				</configuration>
 			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<version>3.5.0</version>
+				<executions>
+					<execution>
+						<?m2e ignore?>
+						<phase>generate-resources</phase>
+						<goals>
+							<goal>exec</goal>
+						</goals>
+						<configuration>
+							<executable>ng</executable>
+							<arguments>
+								<argument>build</argument>
+							</arguments>
+							<workingDirectory>../web</workingDirectory>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
 
