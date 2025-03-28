@@ -6,4 +6,6 @@ import cc.tonyhook.carambola.backend.entity.security.User;
 
 public interface UserRepository extends JpaRepository<User, Integer> {
 
+    User findByUsername(String username);
+
 }
