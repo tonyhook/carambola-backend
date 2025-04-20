@@ -20,7 +20,7 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
-    @PreAuthorize("hasAuthority('SECURITY_MANAGEMENT')")
+    @PreAuthorize("hasAuthority('SECURITY_MANAGEMENT') || hasAuthority('AD_MANAGEMENT') || hasAuthority('AD_OPERATION')")
     public List<User> queryUserList(Query query) {
         List<User> userList = userRepository.findAll();
 
@@ -46,7 +46,7 @@ public class UserService {
         return userList;
     }
 
-    @PreAuthorize("hasAuthority('SECURITY_MANAGEMENT')")
+    @PreAuthorize("hasAuthority('SECURITY_MANAGEMENT') || hasAuthority('AD_MANAGEMENT') || hasAuthority('AD_OPERATION')")
     public List<User> getUserList() {
         List<User> userList = userRepository.findAll();
 
