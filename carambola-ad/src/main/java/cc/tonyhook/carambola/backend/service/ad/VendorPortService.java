@@ -205,6 +205,22 @@ public class VendorPortService {
         return qualifiedVendorPortList;
     }
 
+    public List<VendorPort> getVendorPortList(Authentication authentication, List<Vendor> vendorList) {
+        List<Vendor> qualifiedVendorList = new ArrayList<Vendor>();
+
+        if (vendorList != null) {
+            for (Vendor vendor : vendorList) {
+                if (authenticationService.hasAccess(authentication, vendor)) {
+                    qualifiedVendorList.add(vendor);
+                }
+            }
+        }
+
+        List<VendorPort> vendorPortList = vendorPortRepository.findByVendorInOrderByUpdateTimeDesc(qualifiedVendorList);
+
+        return vendorPortList;
+    }
+
     public List<VendorPort> getVendorPortList(Authentication authentication, VendorMedia vendorMedia) {
         List<VendorPort> qualifiedVendorPortList = new ArrayList<VendorPort>();
 

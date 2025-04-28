@@ -176,6 +176,22 @@ public class VendorMediaService {
         return qualifiedVendorMediaList;
     }
 
+    public List<VendorMedia> getVendorMediaList(Authentication authentication, List<Vendor> vendorList) {
+        List<Vendor> qualifiedVendorList = new ArrayList<Vendor>();
+
+        if (vendorList != null) {
+            for (Vendor vendor : vendorList) {
+                if (authenticationService.hasAccess(authentication, vendor)) {
+                    qualifiedVendorList.add(vendor);
+                }
+            }
+        }
+
+        List<VendorMedia> vendorMediaList = vendorMediaRepository.findByVendorInOrderByUpdateTimeDesc(qualifiedVendorList);
+
+        return vendorMediaList;
+    }
+
     public VendorMedia getVendorMedia(Authentication authentication, Integer id) {
         VendorMedia vendorMedia = vendorMediaRepository.findById(id).orElse(null);
 
