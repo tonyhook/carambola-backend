@@ -207,6 +207,22 @@ public class ClientPortService {
         return qualifiedClientPortList;
     }
 
+    public List<ClientPort> getClientPortList(Authentication authentication, List<Client> clientList) {
+        List<Client> qualifiedClientList = new ArrayList<Client>();
+
+        if (clientList != null) {
+            for (Client client : clientList) {
+                if (authenticationService.hasAccess(authentication, client)) {
+                    qualifiedClientList.add(client);
+                }
+            }
+        }
+
+        List<ClientPort> clientPortList = clientPortRepository.findByClientInOrderByUpdateTimeDesc(qualifiedClientList);
+
+        return clientPortList;
+    }
+
     public List<ClientPort> getClientPortList(Authentication authentication, ClientMedia clientMedia) {
         List<ClientPort> qualifiedClientPortList = new ArrayList<ClientPort>();
 

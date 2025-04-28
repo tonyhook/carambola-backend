@@ -178,6 +178,22 @@ public class ClientMediaService {
         return qualifiedClientMediaList;
     }
 
+    public List<ClientMedia> getClientMediaList(Authentication authentication, List<Client> clientList) {
+        List<Client> qualifiedClientList = new ArrayList<Client>();
+
+        if (clientList != null) {
+            for (Client client : clientList) {
+                if (authenticationService.hasAccess(authentication, client)) {
+                    qualifiedClientList.add(client);
+                }
+            }
+        }
+
+        List<ClientMedia> clientMediaList = clientMediaRepository.findByClientInOrderByUpdateTimeDesc(qualifiedClientList);
+
+        return clientMediaList;
+    }
+
     public ClientMedia getClientMedia(Authentication authentication, Integer id) {
         ClientMedia clientMedia = clientMediaRepository.findById(id).orElse(null);
 

@@ -10,5 +10,6 @@ import cc.tonyhook.carambola.backend.entity.ad.Tenant;
 public interface ClientRepository extends JpaRepository<Client, Integer> {
 
     List<Client> findByTenantOrderByUpdateTimeDesc(Tenant tenant);
+    Client findTopByCode(String code);
 
 }
