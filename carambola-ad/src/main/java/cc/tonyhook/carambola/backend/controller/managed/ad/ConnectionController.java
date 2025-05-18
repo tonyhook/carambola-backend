@@ -3,7 +3,9 @@ package cc.tonyhook.carambola.backend.controller.managed.ad;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,12 +18,16 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import cc.tonyhook.carambola.backend.entity.ad.Connection;
 import cc.tonyhook.carambola.backend.entity.ad.ConnectionLog;
 import cc.tonyhook.carambola.backend.service.ad.ConnectionLogService;
 import cc.tonyhook.carambola.backend.service.ad.ConnectionService;
+import cc.tonyhook.carambola.backend.service.shared.Query;
 import jakarta.transaction.Transactional;
 
 @RequestMapping("/api/managed/ad/connection")
@@ -168,6 +174,70 @@ public class ConnectionController {
         connectionService.removeConnection(id);
 
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping(value = "/paired/client", produces = "application/json; charset=UTF-8")
+    public ResponseEntity<Map<Long, Map<Integer, List<Integer>>>> getPairedClientPortMap(
+            @RequestParam(required = false) String query,
+            @RequestParam(defaultValue = "2024-01-31T00:00:00+08:00") String start,
+            @RequestParam(defaultValue = "2024-01-31T00:00:00+08:00") String end,
+            @RequestParam(defaultValue = "GMT+08:00") String timezone,
+            Authentication authentication) {
+        Query queryObject = null;
+        Timestamp startTimestamp = null;
+        Timestamp endTimestamp = null;
+        if (query != null) {
+            try {
+                ObjectMapper objectMapper = new ObjectMapper();
+                queryObject = objectMapper.readValue(query, Query.class);
+
+                SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
+                startTimestamp = new Timestamp(df.parse(start).getTime());
+                endTimestamp = new Timestamp(df.parse(end).getTime());
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().build();
+            }
+        }
+        Map<Long, Map<Integer, List<Integer>>> pairedClientPortMap = connectionService.queryPairedClientPortMap(
+            authentication,
+            queryObject,
+            startTimestamp,
+            endTimestamp,
+            timezone);
+
+        return ResponseEntity.ok().body(pairedClientPortMap);
+    }
+
+    @GetMapping(value = "/paired/vendor", produces = "application/json; charset=UTF-8")
+    public ResponseEntity<Map<Long, Map<Integer, List<Integer>>>> getPairedVendorPortMap(
+            @RequestParam(required = false) String query,
+            @RequestParam(defaultValue = "2024-01-31T00:00:00+08:00") String start,
+            @RequestParam(defaultValue = "2024-01-31T00:00:00+08:00") String end,
+            @RequestParam(defaultValue = "GMT+08:00") String timezone,
+            Authentication authentication) {
+        Query queryObject = null;
+        Timestamp startTimestamp = null;
+        Timestamp endTimestamp = null;
+        if (query != null) {
+            try {
+                ObjectMapper objectMapper = new ObjectMapper();
+                queryObject = objectMapper.readValue(query, Query.class);
+
+                SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
+                startTimestamp = new Timestamp(df.parse(start).getTime());
+                endTimestamp = new Timestamp(df.parse(end).getTime());
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().build();
+            }
+        }
+        Map<Long, Map<Integer, List<Integer>>> pairedVendorPortMap = connectionService.queryPairedVendorPortMap(
+            authentication,
+            queryObject,
+            startTimestamp,
+            endTimestamp,
+            timezone);
+
+        return ResponseEntity.ok().body(pairedVendorPortMap);
     }
 
 }
