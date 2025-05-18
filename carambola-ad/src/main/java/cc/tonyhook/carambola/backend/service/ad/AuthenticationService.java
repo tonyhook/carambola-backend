@@ -14,6 +14,10 @@ import cc.tonyhook.carambola.backend.entity.ad.Vendor;
 public class AuthenticationService {
 
     public String getUsername(Authentication authentication) {
+        if (authentication == null) {
+            return null;
+        }
+
         Boolean isManagement = false;
 
         for (GrantedAuthority authority : authentication.getAuthorities()) {

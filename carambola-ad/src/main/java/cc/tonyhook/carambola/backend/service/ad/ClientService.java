@@ -129,6 +129,16 @@ public class ClientService {
         }
     }
 
+    public Client getClient(Authentication authentication, String code) {
+        Client client = clientRepository.findTopByCode(code);
+
+        if (client != null && authenticationService.hasAccess(authentication, client)) {
+            return client;
+        } else {
+            return null;
+        }
+    }
+
     public Client addClient(Authentication authentication, Client newClient) {
         if (newClient != null
             && authenticationService.hasAccess(authentication, newClient.getTenant(), TenantUser.ROLE_TENANT_MANAGER, null)) {
