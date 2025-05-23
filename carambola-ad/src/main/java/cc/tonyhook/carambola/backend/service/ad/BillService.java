@@ -45,6 +45,7 @@ import cc.tonyhook.carambola.backend.entity.ad.Client;
 import cc.tonyhook.carambola.backend.entity.ad.ClientPort;
 import cc.tonyhook.carambola.backend.entity.ad.Connection;
 import cc.tonyhook.carambola.backend.entity.ad.Medium;
+import cc.tonyhook.carambola.backend.entity.ad.PerformanceClient;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceClientDay;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceVendor;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceVendorDay;
@@ -666,6 +667,11 @@ public class BillService {
         return mediumList;
     }
 
+    public List<Medium> getMediumList(List<Integer> clientPortIdList, List<Integer> vendorPortIdList, Timestamp start, Timestamp end) {
+        List<Medium> mediumList = mediumRepository.findByClientPortInOrVendorPortInAndDateBetween(clientPortIdList, vendorPortIdList, start, end);
+        return mediumList;
+    }
+
     public List<Medium> getMediumListClient(List<Integer> clientPortIdList, Timestamp start, Timestamp end) {
         List<Medium> mediumList = mediumRepository.findByClientPortInAndDateBetween(clientPortIdList, start, end);
         return mediumList;
@@ -1201,6 +1207,289 @@ public class BillService {
         signRepository.saveAll(signList);
     }
 
+    public byte[] downloadSummary(
+            Authentication authentication,
+            Query queryUpstream,
+            Query queryDownstream,
+            String interval,
+            String aggregateUpstream,
+            String aggregateDownstream,
+            Timestamp start,
+            Timestamp end,
+            String timezone) {
+        List<Client> qualifiedClientList = partnerService.getQualifiedClientListWithoutFilterAndSearch(authentication, queryUpstream);
+        Map<Integer, Client> clientMap = qualifiedClientList.stream().collect(Collectors.toMap(Client::getId, Function.identity(), (first, second) -> first));
+        List<ClientPort> clientPortList = partnerService.getQualifiedClientPortListWithoutFilterAndSearch(qualifiedClientList, queryUpstream);
+        List<Integer> clientPortIdList = clientPortList.stream().map(ClientPort::getId).distinct().collect(Collectors.toList());
+        Map<Integer, ClientPort> clientPortMap = clientPortList.stream().collect(Collectors.toMap(ClientPort::getId, Function.identity(), (first, second) -> first));
+
+        List<Vendor> qualifiedVendorList = partnerService.getQualifiedVendorListWithoutFilterAndSearch(authentication, queryDownstream);
+        Map<Integer, Vendor> vendorMap = qualifiedVendorList.stream().collect(Collectors.toMap(Vendor::getId, Function.identity(), (first, second) -> first));
+        List<VendorPort> vendorPortList = partnerService.getQualifiedVendorPortListWithoutFilterAndSearch(qualifiedVendorList, queryDownstream);
+        List<Integer> vendorPortIdList = vendorPortList.stream().map(VendorPort::getId).distinct().collect(Collectors.toList());
+        Map<Integer, VendorPort> vendorPortMap = vendorPortList.stream().collect(Collectors.toMap(VendorPort::getId, Function.identity(), (first, second) -> first));
+
+        Map<Long, Map<Integer, List<Integer>>> timedPairedClientPortMap = connectionService.getPairedClientPortMap(vendorPortIdList, start, end);
+        Set<String> pairedPortKeySet = new HashSet<String>();
+        for (Long time : timedPairedClientPortMap.keySet()) {
+            Map<Integer, List<Integer>> pairedClientPortMap = timedPairedClientPortMap.get(time);
+            if (pairedClientPortMap == null) {
+                continue;
+            }
+            for (Integer vendorPortId : vendorPortIdList) {
+                List<Integer> clientPortIdListOneDay = pairedClientPortMap.get(vendorPortId);
+                if (clientPortIdList == null || clientPortIdList.isEmpty()) {
+                    continue;
+                }
+                pairedPortKeySet.addAll(clientPortIdListOneDay.stream().map(clientPortId -> time + "|" + clientPortId + "|" + vendorPortId).collect(Collectors.toList()));
+            }
+        }
+
+        List<PerformanceClient> performanceClientList = performanceService.queryPerformanceClientList(authentication, queryUpstream, "day", true, start, end, timezone);
+        List<PerformanceView> performanceClientViewList = new ArrayList<PerformanceView>();
+        Map<String, PerformanceView> performanceClientViewMap = new HashMap<String, PerformanceView>();
+        for (PerformanceClient performanceClient : performanceClientList) {
+            PerformanceView performanceClientView = performanceService.convertClientToView(performanceClient, interval, timezone);
+
+            String key = performanceClient.getTime().getTime() + "|" + performanceClient.getClientPort() + "|" + performanceClient.getVendorPort();
+            performanceClientViewList.add(performanceClientView);
+            performanceClientViewMap.put(key, performanceClientView);
+        }
+
+        List<Sign> signList = getSignList(vendorPortIdList, start, end);
+        Map<String, Sign> signMap = new HashMap<String, Sign>();
+        for (Sign sign : signList) {
+            String key = sign.getDate().getTime() + "|" + sign.getVendorPort();
+            signMap.put(key, sign);
+        }
+
+        List<Medium> mediumUpstreamList = getMediumList(clientPortIdList, vendorPortIdList, start, end);
+        Map<String, Medium> mediumUpstreamMap = new HashMap<String, Medium>();
+        for (Medium medium : mediumUpstreamList) {
+            String key = medium.getDate().getTime() + "|" + medium.getClientPort() + "|" + medium.getVendorPort();
+            mediumUpstreamMap.put(key, medium);
+
+            if (!performanceClientViewMap.containsKey(key)) {
+                if (medium.getRequest() == null) {
+                    medium.setRequest(0L);
+                }
+                if (medium.getResponse() == null) {
+                    medium.setResponse(0L);
+                }
+                if (medium.getImpression() == null) {
+                    medium.setImpression(0L);
+                }
+                if (medium.getClick() == null) {
+                    medium.setClick(0L);
+                }
+                if (medium.getIncome() == null) {
+                    medium.setIncome(0L);
+                }
+                if (medium.getOutcomeUpstream() == null) {
+                    medium.setOutcomeUpstream(0L);
+                }
+                if (medium.getOutcomeRebate() == null) {
+                    medium.setOutcomeRebate(0L);
+                }
+                if (medium.getOutcomeDownstream() == null) {
+                    medium.setOutcomeDownstream(0L);
+                }
+            } else {
+                PerformanceView performanceClientView = performanceClientViewMap.get(key);
+
+                if (medium.getRequest() == null) {
+                    medium.setRequest(performanceClientView.getRequestv());
+                }
+                if (medium.getResponse() == null) {
+                    medium.setResponse(performanceClientView.getResponse());
+                }
+                if (medium.getImpression() == null) {
+                    medium.setImpression(performanceClientView.getImpression());
+                }
+                if (medium.getClick() == null) {
+                    medium.setClick(performanceClientView.getClick());
+                }
+                if (medium.getIncome() == null) {
+                    medium.setIncome(performanceClientView.getIncome());
+                }
+                if (medium.getOutcomeUpstream() == null) {
+                    medium.setOutcomeUpstream(performanceClientView.getOutcomeUpstream());
+                }
+                if (medium.getOutcomeRebate() == null) {
+                    medium.setOutcomeRebate(performanceClientView.getOutcomeRebate());
+                }
+                if (medium.getOutcomeDownstream() == null) {
+                    medium.setOutcomeDownstream(performanceClientView.getOutcomeDownstream());
+                }
+            }
+
+            pairedPortKeySet.remove(medium.getDate().getTime() + "|" + medium.getClientPort() + "|" + medium.getVendorPort());
+        }
+
+        for (String key : pairedPortKeySet) {
+            Long time = Long.parseLong(key.split("\\|")[0]);
+            Integer clientPortId = Integer.parseInt(key.split("\\|")[1]);
+            Integer vendorPortId = Integer.parseInt(key.split("\\|")[2]);
+
+            if (!performanceClientViewMap.containsKey(key)) {
+                continue;
+            }
+            PerformanceView performanceClientView = performanceClientViewMap.get(key);
+
+            if (!mediumUpstreamMap.containsKey(key)) {
+                Medium mediumUpstream = new Medium();
+                mediumUpstream.setDate(new Timestamp(time));
+                mediumUpstream.setClientPort(clientPortId);
+                mediumUpstream.setVendorPort(vendorPortId);
+                mediumUpstream.setRequest(performanceClientView.getRequestv());
+                mediumUpstream.setResponse(performanceClientView.getResponse());
+                mediumUpstream.setImpression(performanceClientView.getImpression());
+                mediumUpstream.setClick(performanceClientView.getClick());
+                mediumUpstream.setIncome(performanceClientView.getIncome());
+                mediumUpstream.setOutcomeUpstream(performanceClientView.getOutcomeUpstream());
+                mediumUpstream.setOutcomeRebate(performanceClientView.getOutcomeRebate());
+                mediumUpstream.setOutcomeDownstream(performanceClientView.getOutcomeDownstream());
+
+                mediumUpstreamList.add(mediumUpstream);
+                mediumUpstreamMap.put(key, mediumUpstream);
+            }
+        }
+
+        Map<String, Medium> mediumTransitionMap = new HashMap<String, Medium>();
+        for (Medium medium : mediumUpstreamList) {
+            String key = medium.getDate().getTime() + "|" + medium.getVendorPort();
+            if (!mediumTransitionMap.containsKey(key)) {
+                Medium mediumTransition = new Medium();
+                mediumTransition.setDate(medium.getDate());
+                mediumTransition.setClientPort(0);
+                mediumTransition.setVendorPort(medium.getVendorPort());
+                mediumTransition.setRequest(0L);
+                mediumTransition.setResponse(0L);
+                mediumTransition.setImpression(0L);
+                mediumTransition.setClick(0L);
+                mediumTransition.setIncome(0L);
+                mediumTransition.setOutcomeUpstream(0L);
+                mediumTransition.setOutcomeRebate(0L);
+                mediumTransition.setOutcomeDownstream(0L);
+
+                mediumTransitionMap.put(key, mediumTransition);
+            }
+
+            Medium mediumTransition = mediumTransitionMap.get(key);
+
+            mediumTransition.setRequest(mediumTransition.getRequest() + medium.getRequest());
+            mediumTransition.setResponse(mediumTransition.getResponse() + medium.getResponse());
+            mediumTransition.setImpression(mediumTransition.getImpression() + medium.getImpression());
+            mediumTransition.setClick(mediumTransition.getClick() + medium.getClick());
+            mediumTransition.setIncome(mediumTransition.getIncome() + medium.getIncome());
+            mediumTransition.setOutcomeUpstream(mediumTransition.getOutcomeUpstream() + medium.getOutcomeUpstream());
+            mediumTransition.setOutcomeRebate(mediumTransition.getOutcomeRebate() + medium.getOutcomeRebate());
+            mediumTransition.setOutcomeDownstream(mediumTransition.getOutcomeDownstream() + medium.getOutcomeDownstream());
+        }
+
+        for (String key : pairedPortKeySet) {
+            Long time = Long.parseLong(key.split("\\|")[0]);
+            Integer vendorPortId = Integer.parseInt(key.split("\\|")[2]);
+
+            if (!performanceClientViewMap.containsKey(key)) {
+                continue;
+            }
+            PerformanceView performanceClientView = performanceClientViewMap.get(key);
+
+            if (!mediumTransitionMap.containsKey(time + "|" + vendorPortId)) {
+                Medium mediumTransition = new Medium();
+                mediumTransition.setDate(new Timestamp(time));
+                mediumTransition.setClientPort(0);
+                mediumTransition.setVendorPort(vendorPortId);
+                mediumTransition.setRequest(performanceClientView.getRequestv());
+                mediumTransition.setResponse(performanceClientView.getResponse());
+                mediumTransition.setImpression(performanceClientView.getImpression());
+                mediumTransition.setClick(performanceClientView.getClick());
+                mediumTransition.setIncome(performanceClientView.getIncome());
+                mediumTransition.setOutcomeUpstream(performanceClientView.getOutcomeUpstream());
+                mediumTransition.setOutcomeRebate(performanceClientView.getOutcomeRebate());
+                mediumTransition.setOutcomeDownstream(performanceClientView.getOutcomeDownstream());
+
+                mediumTransitionMap.put(key, mediumTransition);
+            }
+        }
+
+        List<Medium> mediumDownstreamList = new ArrayList<Medium>();
+        for (Medium medium : mediumUpstreamList) {
+            String key = medium.getDate().getTime() + "|" + medium.getVendorPort();
+            Sign sign = signMap.get(key);
+            Medium mediumTransition = mediumTransitionMap.get(key);
+
+            Medium mediumDownstream = new Medium();
+            mediumDownstream.setDate(medium.getDate());
+            mediumDownstream.setClientPort(medium.getClientPort());
+            mediumDownstream.setVendorPort(medium.getVendorPort());
+
+            if (sign != null && sign.getRequest() != null) {
+                if (mediumTransition.getRequest() == 0) {
+                    mediumDownstream.setRequest(0L);
+                } else {
+                    mediumDownstream.setRequest(Math.round(1.0 * medium.getRequest() * sign.getRequest() / mediumTransition.getRequest()));
+                }
+            }
+            if (sign != null && sign.getResponse() != null) {
+                if (mediumTransition.getResponse() == 0) {
+                    mediumDownstream.setResponse(0L);
+                } else {
+                    mediumDownstream.setResponse(Math.round(1.0 * medium.getResponse() * sign.getResponse() / mediumTransition.getResponse()));
+                }
+            }
+            if (sign != null && sign.getImpression() != null) {
+                if (mediumTransition.getImpression() == 0) {
+                    mediumDownstream.setImpression(0L);
+                } else {
+                    mediumDownstream.setImpression(Math.round(1.0 * medium.getImpression() * sign.getImpression() / mediumTransition.getImpression()));
+                }
+            }
+            if (sign != null && sign.getClick() != null) {
+                if (mediumTransition.getClick() == 0) {
+                    mediumDownstream.setClick(0L);
+                } else {
+                    mediumDownstream.setClick(Math.round(1.0 * medium.getClick() * sign.getClick() / mediumTransition.getClick()));
+                }
+            }
+            if (sign != null && sign.getCost() != null) {
+                if (mediumTransition.getOutcomeDownstream() == 0) {
+                    mediumDownstream.setOutcomeDownstream(0L);
+                } else {
+                    mediumDownstream.setOutcomeDownstream(Math.round(1.0 * medium.getOutcomeDownstream() * sign.getCost() / mediumTransition.getOutcomeDownstream()));
+                }
+            }
+
+            mediumDownstreamList.add(mediumDownstream);
+        }
+
+        List<ClientPort> filteredClientPortList = partnerService.getQualifiedClientPortList(qualifiedClientList, queryUpstream);
+        final List<Integer> filteredClientPortIdList = filteredClientPortList.stream().map(ClientPort::getId).distinct().collect(Collectors.toList());
+        List<VendorPort> filteredVendorPortList = partnerService.getQualifiedVendorPortList(qualifiedVendorList, queryDownstream);
+        final List<Integer> filteredVendorPortIdList = filteredVendorPortList.stream().map(VendorPort::getId).distinct().collect(Collectors.toList());
+        mediumUpstreamList = mediumUpstreamList.stream().filter(medium -> filteredClientPortIdList.contains(medium.getClientPort()) && filteredVendorPortIdList.contains(medium.getVendorPort())).collect(Collectors.toList());
+        mediumDownstreamList = mediumDownstreamList.stream().filter(medium -> filteredClientPortIdList.contains(medium.getClientPort()) && filteredVendorPortIdList.contains(medium.getVendorPort())).collect(Collectors.toList());
+        performanceClientViewList = performanceClientViewList.stream().filter(performanceClientView -> filteredClientPortIdList.contains(performanceClientView.getClientPort()) && filteredVendorPortIdList.contains(performanceClientView.getVendorPort())).collect(Collectors.toList());
+
+        mediumUpstreamList = getMediumList(clientPortIdList, vendorPortIdList, start, end);
+
+        return generateSummaryReport(
+            queryUpstream.filter.get("clientMode").contains(String.valueOf(Client.PARTNER_TYPE_DIRECT)),
+            interval,
+            aggregateUpstream,
+            aggregateDownstream,
+            mediumUpstreamList,
+            mediumDownstreamList,
+            performanceClientViewList,
+            signList,
+            clientMap,
+            vendorMap,
+            clientPortMap,
+            vendorPortMap,
+            timezone);
+    }
+
     private byte[] generateBillReport(
             String interval,
             String aggregateUpstream,
@@ -1578,6 +1867,696 @@ public class BillService {
         }
 
         cellService.adjustColumnWeight(sheet, 0, column + 1);
+
+        try {
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            workbook.write(outputStream);
+            workbook.close();
+
+            return outputStream.toByteArray();
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    private byte[] generateSummaryReport(
+            Boolean directMode,
+            String interval,
+            String aggregateUpstream,
+            String aggregateDownstream,
+            List<Medium> mediumUpstreamList,
+            List<Medium> mediumDownstreamList,
+            List<PerformanceView> performanceClientViewList,
+            List<Sign> signList,
+            Map<Integer, Client> clientMap,
+            Map<Integer, Vendor> vendorMap,
+            Map<Integer, ClientPort> clientPortMap,
+            Map<Integer, VendorPort> vendorPortMap,
+            String timezone) {
+        TimeZone tz = TimeZone.getTimeZone(timezone);
+        SimpleDateFormat dfDate = new SimpleDateFormat("yyyy-MM-dd");
+        if (interval.equals("day")) {
+            dfDate = new SimpleDateFormat("yyyy-MM-dd");
+        }
+        if (interval.equals("month")) {
+            dfDate = new SimpleDateFormat("yyyy-MM");
+        }
+        if (interval.equals("year")) {
+            dfDate = new SimpleDateFormat("yyyy");
+        }
+        dfDate.setTimeZone(tz);
+        SimpleDateFormat dfDateDay = new SimpleDateFormat("yyyy-MM-dd");
+        dfDateDay.setTimeZone(tz);
+
+        Map<String, Long> mediumUpstreamIncomeMap = new HashMap<String, Long>();
+        for (Medium medium : mediumUpstreamList) {
+            if (medium.getIncome() == null) {
+                continue;
+            }
+
+            String key = dfDateDay.format(medium.getDate()) + "|" + medium.getClientPort() + "|" + medium.getVendorPort();
+            mediumUpstreamIncomeMap.put(key, mediumUpstreamIncomeMap.getOrDefault(key, 0L) + medium.getIncome());
+        }
+
+        Map<String, PerformanceView> performanceClientViewMap = new HashMap<String, PerformanceView>();
+        for (PerformanceView performanceClientView : performanceClientViewList) {
+            String key = performanceClientView.getTime() + "|";
+            if (aggregateUpstream.equals("client") || aggregateUpstream.equals("clientport")) {
+                key += "C" + clientPortMap.get(performanceClientView.getClientPort()).getClient().getId() + "|";
+            }
+            if (aggregateUpstream.equals("clientport")) {
+                key += "CP" + performanceClientView.getClientPort() + "|";
+            }
+            if (aggregateDownstream.equals("vendor") || aggregateDownstream.equals("vendorport")) {
+                key += "V" + vendorPortMap.get(performanceClientView.getVendorPort()).getVendor().getId() + "|";
+            }
+            if (aggregateDownstream.equals("vendorport")) {
+                key += "VP" + performanceClientView.getVendorPort() + "|";
+            }
+
+            if (!performanceClientViewMap.containsKey(key)) {
+                PerformanceView performanceClientViewNew = new PerformanceView();
+
+                performanceClientViewMap.put(key, performanceClientViewNew);
+            }
+
+            PerformanceView performanceClientViewAggregated = performanceClientViewMap.get(key);
+            performanceClientViewAggregated.setRequest(performanceClientViewAggregated.getRequest() + performanceClientView.getRequest());
+            performanceClientViewAggregated.setResponse(performanceClientViewAggregated.getResponse() + performanceClientView.getResponse());
+            performanceClientViewAggregated.setRequestv(performanceClientViewAggregated.getRequestv() + performanceClientView.getRequestv());
+            performanceClientViewAggregated.setResponsev(performanceClientViewAggregated.getResponsev() + performanceClientView.getResponsev());
+            performanceClientViewAggregated.setImpression(performanceClientViewAggregated.getImpression() + performanceClientView.getImpression());
+            performanceClientViewAggregated.setClick(performanceClientViewAggregated.getClick() + performanceClientView.getClick());
+            if (clientPortMap.get(performanceClientView.getClientPort()).getMode() == ClientPort.PORT_TYPE_BIDDING) {
+                performanceClientViewAggregated.setIncome(performanceClientViewAggregated.getIncome() + performanceClientView.getIncome());
+            }
+            if (clientPortMap.get(performanceClientView.getClientPort()).getMode() == ClientPort.PORT_TYPE_SHARE) {
+                String mediumKey = dfDateDay.format(performanceClientView.getStart()) + "|" + performanceClientView.getClientPort() + "|" + performanceClientView.getVendorPort();
+                performanceClientViewAggregated.setIncome(performanceClientViewAggregated.getIncome() + mediumUpstreamIncomeMap.getOrDefault(mediumKey, 0L));
+            }
+            performanceClientViewAggregated.setOutcomeUpstream(performanceClientViewAggregated.getOutcomeUpstream() + performanceClientView.getOutcomeUpstream());
+            performanceClientViewAggregated.setOutcomeRebate(performanceClientViewAggregated.getOutcomeRebate() + performanceClientView.getOutcomeRebate());
+            performanceClientViewAggregated.setOutcomeDownstream(performanceClientViewAggregated.getOutcomeDownstream() + performanceClientView.getOutcomeDownstream());
+        }
+
+        Map<String, Medium> mediumUpstreamMap = new HashMap<String, Medium>();
+        for (Medium medium : mediumUpstreamList) {
+            if (!clientPortMap.containsKey(medium.getClientPort())) {
+                continue;
+            }
+
+            String key = dfDate.format(medium.getDate()) + "|";
+            if (aggregateUpstream.equals("client") || aggregateUpstream.equals("clientport") || aggregateDownstream.equals("vendor") || aggregateDownstream.equals("vendorport")) {
+                key += "C" + clientPortMap.get(medium.getClientPort()).getClient().getId() + "|";
+            }
+            if (aggregateUpstream.equals("clientport") || aggregateDownstream.equals("vendorport")) {
+                key += "CP" + medium.getClientPort() + "|";
+            }
+            if (aggregateUpstream.equals("client") || aggregateUpstream.equals("clientport") || aggregateDownstream.equals("vendor") || aggregateDownstream.equals("vendorport")) {
+                key += "V" + vendorPortMap.get(medium.getVendorPort()).getVendor().getId() + "|";
+            }
+            if (aggregateUpstream.equals("clientport") || aggregateDownstream.equals("vendorport")) {
+                key += "VP" + medium.getVendorPort() + "|";
+            }
+
+            if (!mediumUpstreamMap.containsKey(key)) {
+                Medium mediumNew = new Medium();
+
+                mediumUpstreamMap.put(key, mediumNew);
+            }
+
+            Medium mediumUpstream = mediumUpstreamMap.get(key);
+            if (medium.getRequest() != null) {
+                if (mediumUpstream.getRequest() != null) {
+                    mediumUpstream.setRequest(mediumUpstream.getRequest() + medium.getRequest());
+                } else {
+                    mediumUpstream.setRequest(medium.getRequest());
+                }
+            }
+            if (medium.getResponse() != null) {
+                if (mediumUpstream.getResponse() != null) {
+                    mediumUpstream.setResponse(mediumUpstream.getResponse() + medium.getResponse());
+                } else {
+                    mediumUpstream.setResponse(medium.getResponse());
+                }
+            }
+            if (medium.getImpression() != null) {
+                if (mediumUpstream.getImpression() != null) {
+                    mediumUpstream.setImpression(mediumUpstream.getImpression() + medium.getImpression());
+                } else {
+                    mediumUpstream.setImpression(medium.getImpression());
+                }
+            }
+            if (medium.getClick() != null) {
+                if (mediumUpstream.getClick() != null) {
+                    mediumUpstream.setClick(mediumUpstream.getClick() + medium.getClick());
+                } else {
+                    mediumUpstream.setClick(medium.getClick());
+                }
+            }
+            if (medium.getIncome() != null) {
+                if (mediumUpstream.getIncome() != null) {
+                    mediumUpstream.setIncome(mediumUpstream.getIncome() + medium.getIncome());
+                } else {
+                    mediumUpstream.setIncome(medium.getIncome());
+                }
+            }
+            if (medium.getOutcomeUpstream() != null) {
+                if (mediumUpstream.getOutcomeUpstream() != null) {
+                    mediumUpstream.setOutcomeUpstream(mediumUpstream.getOutcomeUpstream() + medium.getOutcomeUpstream());
+                } else {
+                    mediumUpstream.setOutcomeUpstream(medium.getOutcomeUpstream());
+                }
+            }
+            if (medium.getOutcomeRebate() != null) {
+                if (mediumUpstream.getOutcomeRebate() != null) {
+                    mediumUpstream.setOutcomeRebate(mediumUpstream.getOutcomeRebate() + medium.getOutcomeRebate());
+                } else {
+                    mediumUpstream.setOutcomeRebate(medium.getOutcomeRebate());
+                }
+            }
+            if (medium.getOutcomeDownstream() != null) {
+                if (mediumUpstream.getOutcomeDownstream() != null) {
+                    mediumUpstream.setOutcomeDownstream(mediumUpstream.getOutcomeDownstream() + medium.getOutcomeDownstream());
+                } else {
+                    mediumUpstream.setOutcomeDownstream(medium.getOutcomeDownstream());
+                }
+            }
+        }
+
+        Map<String, Medium> mediumDownstreamMap = new HashMap<String, Medium>();
+        for (Medium medium : mediumDownstreamList) {
+            String key = dfDate.format(medium.getDate()) + "|";
+            if (aggregateUpstream.equals("client") || aggregateUpstream.equals("clientport") || aggregateDownstream.equals("vendor") || aggregateDownstream.equals("vendorport")) {
+                key += "C" + clientPortMap.get(medium.getClientPort()).getClient().getId() + "|";
+            }
+            if (aggregateUpstream.equals("clientport") || aggregateDownstream.equals("vendorport")) {
+                key += "CP" + medium.getClientPort() + "|";
+            }
+            if (aggregateUpstream.equals("client") || aggregateUpstream.equals("clientport") || aggregateDownstream.equals("vendor") || aggregateDownstream.equals("vendorport")) {
+                key += "V" + vendorPortMap.get(medium.getVendorPort()).getVendor().getId() + "|";
+            }
+            if (aggregateUpstream.equals("clientport") || aggregateDownstream.equals("vendorport")) {
+                key += "VP" + medium.getVendorPort() + "|";
+            }
+
+            if (!mediumDownstreamMap.containsKey(key)) {
+                Medium mediumNew = new Medium();
+
+                mediumDownstreamMap.put(key, mediumNew);
+            }
+
+            Medium mediumDownstream = mediumDownstreamMap.get(key);
+            if (medium.getRequest() != null) {
+                if (mediumDownstream.getRequest() != null) {
+                    mediumDownstream.setRequest(mediumDownstream.getRequest() + medium.getRequest());
+                } else {
+                    mediumDownstream.setRequest(medium.getRequest());
+                }
+            }
+            if (medium.getResponse() != null) {
+                if (mediumDownstream.getResponse() != null) {
+                    mediumDownstream.setResponse(mediumDownstream.getResponse() + medium.getResponse());
+                } else {
+                    mediumDownstream.setResponse(medium.getResponse());
+                }
+            }
+            if (medium.getImpression() != null) {
+                if (mediumDownstream.getImpression() != null) {
+                    mediumDownstream.setImpression(mediumDownstream.getImpression() + medium.getImpression());
+                } else {
+                    mediumDownstream.setImpression(medium.getImpression());
+                }
+            }
+            if (medium.getClick() != null) {
+                if (mediumDownstream.getClick() != null) {
+                    mediumDownstream.setClick(mediumDownstream.getClick() + medium.getClick());
+                } else {
+                    mediumDownstream.setClick(medium.getClick());
+                }
+            }
+            if (medium.getOutcomeDownstream() != null) {
+                if (mediumDownstream.getOutcomeDownstream() != null) {
+                    mediumDownstream.setOutcomeDownstream(mediumDownstream.getOutcomeDownstream() + medium.getOutcomeDownstream());
+                } else {
+                    mediumDownstream.setOutcomeDownstream(medium.getOutcomeDownstream());
+                }
+            }
+        }
+
+        Map<String, Sign> signMap = new HashMap<String, Sign>();
+        for (Sign sign : signList) {
+            String key = dfDate.format(sign.getDate()) + "|";
+            if (aggregateUpstream.equals("client") || aggregateUpstream.equals("clientport") || aggregateDownstream.equals("vendor") || aggregateDownstream.equals("vendorport")) {
+                key += "V" + vendorPortMap.get(sign.getVendorPort()).getVendor().getId() + "|";
+            }
+            if (aggregateUpstream.equals("clientport") || aggregateDownstream.equals("vendorport")) {
+                key += "VP" + sign.getVendorPort() + "|";
+            }
+
+            if (!signMap.containsKey(key)) {
+                Sign signNew = new Sign();
+                // prepare for bit OR accumulation
+                signNew.setStatus(0);
+
+                signMap.put(key, signNew);
+            }
+
+            Sign existedSign = signMap.get(key);
+            existedSign.setStatus(existedSign.getStatus() | Math.round((float) Math.pow(2, sign.getStatus())));
+        }
+
+        Workbook workbook = new XSSFWorkbook();
+        DataFormat format = workbook.createDataFormat();
+        CellStyle cellStyleAmount = workbook.createCellStyle();
+        cellStyleAmount.setDataFormat(format.getFormat("##0"));
+        CellStyle cellStyleCost = workbook.createCellStyle();
+        cellStyleCost.setDataFormat(format.getFormat("0.00"));
+        CellStyle cellStylePercentage = workbook.createCellStyle();
+        cellStylePercentage.setDataFormat(format.getFormat("0.00%"));
+        Sheet sheet = workbook.createSheet("综合对账");
+
+        if (directMode) {
+            Row header = sheet.createRow(0);
+            int column = -1;
+            Cell headerCell = header.createCell(++column);
+            headerCell.setCellValue("时间");
+            if (aggregateUpstream.equals("clientport") || aggregateDownstream.equals("vendorport")) {
+                headerCell = header.createCell(++column);
+                headerCell.setCellValue("代码位");
+                headerCell = header.createCell(++column);
+                headerCell.setCellValue("代码位名称");
+            }
+            if (aggregateUpstream.equals("client") || aggregateUpstream.equals("clientport") || aggregateDownstream.equals("vendor") || aggregateDownstream.equals("vendorport")) {
+                headerCell = header.createCell(++column);
+                headerCell.setCellValue("上游");
+                headerCell = header.createCell(++column);
+                headerCell.setCellValue("下游");
+            }
+            if (aggregateUpstream.equals("clientport") || aggregateDownstream.equals("vendorport")) {
+                headerCell = header.createCell(++column);
+                headerCell.setCellValue("状态");
+            }
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("收益（上游）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("请求量（上游）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("响应量（上游）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("展现量（上游）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("点击量（上游）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("单价（上游）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("收益");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("请求量");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("响应量");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("展现量");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("点击量");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("单价");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("收益差");
+
+            Integer line = 0;
+
+            List<String> keys = new ArrayList<String>();
+            keys.addAll(mediumDownstreamMap.keySet());
+            keys.sort((a, b) -> b.compareTo(a));
+
+            for (String key : keys) {
+                String date = key.split("\\|")[0];
+                int index = 0;
+                Integer clientId = -1;
+                Integer clientPortId = -1;
+                Integer vendorId = -1;
+
+                column = -1;
+
+                if (aggregateUpstream.equals("client") || aggregateUpstream.equals("clientport") || aggregateDownstream.equals("vendor") || aggregateDownstream.equals("vendorport")) {
+                    clientId = Integer.parseInt(key.split("\\|")[++index].substring(1));
+                }
+                if (aggregateUpstream.equals("clientport") || aggregateUpstream.equals("vendorport")) {
+                    clientPortId = Integer.parseInt(key.split("\\|")[++index].substring(2));
+                }
+                if (aggregateUpstream.equals("client") || aggregateUpstream.equals("clientport") || aggregateDownstream.equals("vendor") || aggregateDownstream.equals("vendorport")) {
+                    vendorId = Integer.parseInt(key.split("\\|")[++index].substring(1));
+                }
+
+                Row row = sheet.createRow(++line);
+                Cell cell = row.createCell(++column);
+                cell.setCellValue(date);
+                if (aggregateUpstream.equals("clientport") || aggregateDownstream.equals("vendorport")) {
+                    cell = row.createCell(++column);
+                    cell.setCellValue(clientPortMap.get(clientPortId).getTagId());
+                    cell = row.createCell(++column);
+                    cell.setCellValue(clientPortMap.get(clientPortId).getName());
+                }
+                if (aggregateUpstream.equals("client") || aggregateUpstream.equals("clientport") || aggregateDownstream.equals("vendor") || aggregateDownstream.equals("vendorport")) {
+                    cell = row.createCell(++column);
+                    cell.setCellValue(clientMap.get(clientId).getName());
+                    cell = row.createCell(++column);
+                    cell.setCellValue(vendorMap.get(vendorId).getName());
+                }
+                if (aggregateUpstream.equals("clientport") || aggregateDownstream.equals("vendorport")) {
+                    cell = row.createCell(++column);
+                    Integer statusCode = signMap.get(key.split("\\|")[0] + "|" +  key.split("\\|")[3] + "|" +  key.split("\\|")[4] + "|").getStatus();
+                    String statusMessage = "";
+                    if ((statusCode & Sign.SIGN_STATUS_READY) != 0) {
+                        statusMessage = "数据就绪";
+                    }
+                    if ((statusCode & Sign.SIGN_STATUS_CREATED) != 0) {
+                        statusMessage = statusMessage.length() > 0 ? statusMessage + "|" : "" + "待签发";
+                    }
+                    if ((statusCode & Sign.SIGN_STATUS_SIGNED) == 0) {
+                        statusMessage = statusMessage.length() > 0 ? statusMessage + "|" : "" + "已签发";
+                    }
+                    cell.setCellValue(statusMessage);
+                }
+                cell = row.createCell(++column);
+                if (mediumUpstreamMap.get(key).getIncome() != null) {
+                    cell.setCellValue(Math.round(mediumUpstreamMap.get(key).getIncome() / 1000.0) / 100.0);
+                    cell.setCellStyle(cellStyleCost);
+                } else {
+                    cell.setCellValue("");
+                }
+                cell = row.createCell(++column);
+                if (mediumUpstreamMap.get(key).getRequest() != null) {
+                    cell.setCellValue(mediumUpstreamMap.get(key).getRequest());
+                    cell.setCellStyle(cellStyleAmount);
+                } else {
+                    cell.setCellValue("");
+                }
+                cell = row.createCell(++column);
+                if (mediumUpstreamMap.get(key).getResponse() != null) {
+                    cell.setCellValue(mediumUpstreamMap.get(key).getResponse());
+                    cell.setCellStyle(cellStyleAmount);
+                } else {
+                    cell.setCellValue("");
+                }
+                cell = row.createCell(++column);
+                if (mediumUpstreamMap.get(key).getImpression() != null) {
+                    cell.setCellValue(mediumUpstreamMap.get(key).getImpression());
+                    cell.setCellStyle(cellStyleAmount);
+                } else {
+                    cell.setCellValue("");
+                }
+                cell = row.createCell(++column);
+                if (mediumUpstreamMap.get(key).getClick() != null) {
+                    cell.setCellValue(mediumUpstreamMap.get(key).getClick());
+                    cell.setCellStyle(cellStyleAmount);
+                } else {
+                    cell.setCellValue("");
+                }
+                cell = row.createCell(++column);
+                cell.setCellFormula("IFERROR(" + cellService.getExcelColumnLetter(column - 5) + (line + 1) + "/" + cellService.getExcelColumnLetter(column - 2) + (line + 1) + "*1000, \"\")");
+                cell.setCellStyle(cellStyleCost);
+                cell = row.createCell(++column);
+                if (mediumDownstreamMap.containsKey(key) && mediumDownstreamMap.get(key).getOutcomeDownstream() != null) {
+                    cell.setCellValue(Math.round(mediumDownstreamMap.get(key).getOutcomeDownstream() / 1000.0) / 100.0);
+                    cell.setCellStyle(cellStyleCost);
+                } else {
+                    cell.setCellValue("");
+                }
+                cell = row.createCell(++column);
+                if (mediumDownstreamMap.containsKey(key) && mediumDownstreamMap.get(key).getRequest() != null) {
+                    cell.setCellValue(mediumDownstreamMap.get(key).getRequest());
+                    cell.setCellStyle(cellStyleAmount);
+                } else {
+                    cell.setCellValue("");
+                }
+                cell = row.createCell(++column);
+                if (mediumDownstreamMap.containsKey(key) && mediumDownstreamMap.get(key).getResponse() != null) {
+                    cell.setCellValue(mediumDownstreamMap.get(key).getResponse());
+                    cell.setCellStyle(cellStyleAmount);
+                } else {
+                    cell.setCellValue("");
+                }
+                cell = row.createCell(++column);
+                if (mediumDownstreamMap.containsKey(key) && mediumDownstreamMap.get(key).getImpression() != null) {
+                    cell.setCellValue(mediumDownstreamMap.get(key).getImpression());
+                    cell.setCellStyle(cellStyleAmount);
+                } else {
+                    cell.setCellValue("");
+                }
+                cell = row.createCell(++column);
+                if (mediumDownstreamMap.containsKey(key) && mediumDownstreamMap.get(key).getClick() != null) {
+                    cell.setCellValue(mediumDownstreamMap.get(key).getClick());
+                    cell.setCellStyle(cellStyleAmount);
+                } else {
+                    cell.setCellValue("");
+                }
+                cell = row.createCell(++column);
+                cell.setCellFormula("IFERROR(" + cellService.getExcelColumnLetter(column - 5) + (line + 1) + "/" + cellService.getExcelColumnLetter(column - 2) + (line + 1) + "*1000, \"\")");
+                cell.setCellStyle(cellStyleCost);
+                cell = row.createCell(++column);
+                cell.setCellFormula("IFERROR(" + cellService.getExcelColumnLetter(column - 7) + (line + 1) + "/" + cellService.getExcelColumnLetter(column - 1) + (line + 1) + ", \"\")");
+                cell.setCellStyle(cellStylePercentage);
+            }
+
+            cellService.adjustColumnWeight(sheet, 0, column + 1);
+        } else {
+            Row header = sheet.createRow(0);
+            int column = -1;
+            Cell headerCell = header.createCell(++column);
+            headerCell.setCellValue("时间");
+            if (aggregateUpstream.equals("client") || aggregateUpstream.equals("clientport")) {
+                headerCell = header.createCell(++column);
+                headerCell.setCellValue("上游");
+            }
+            if (aggregateUpstream.equals("clientport")) {
+                headerCell = header.createCell(++column);
+                headerCell.setCellValue("代码位（上游）");
+                headerCell = header.createCell(++column);
+                headerCell.setCellValue("代码位名称（上游）");
+                headerCell = header.createCell(++column);
+                headerCell.setCellValue("交易模式（上游）");
+            }
+            if (aggregateDownstream.equals("vendor") || aggregateDownstream.equals("vendorport")) {
+                headerCell = header.createCell(++column);
+                headerCell.setCellValue("下游");
+            }
+            if (aggregateDownstream.equals("vendorport")) {
+                headerCell = header.createCell(++column);
+                headerCell.setCellValue("媒体");
+                headerCell = header.createCell(++column);
+                headerCell.setCellValue("代码位（下游）");
+                headerCell = header.createCell(++column);
+                headerCell.setCellValue("代码位名称（下游）");
+                headerCell = header.createCell(++column);
+                headerCell.setCellValue("交易模式（下游）");
+            }
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("展现量（上游）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("点击量（上游）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("收益（上游）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("点击率（上游）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("ecpm（上游）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("展现量（下游）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("点击量（下游）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("支出（下游）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("点击率（下游）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("ecpm（下游）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("请求量（平台）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("响应量（平台）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("填充率（平台）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("展现量（平台）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("点击量（平台）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("点击率（平台）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("ecpm（平台）");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("上游成交额");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("下游成交额");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("利润");
+            headerCell = header.createCell(++column);
+            headerCell.setCellValue("请求价值（平台）");
+
+            Integer line = 0;
+
+            List<String> keys = new ArrayList<String>();
+            keys.addAll(performanceClientViewMap.keySet());
+            keys.sort((a, b) -> b.compareTo(a));
+
+            for (String key : keys) {
+                String date = key.split("\\|")[0];
+                int index = 0;
+                Integer clientId = -1;
+                Integer clientPortId = -1;
+                Integer vendorId = -1;
+                Integer vendorPortId = -1;
+
+                column = -1;
+
+                if (aggregateUpstream.equals("client") || aggregateUpstream.equals("clientport")) {
+                    clientId = Integer.parseInt(key.split("\\|")[++index].substring(1));
+                    if (!clientMap.containsKey(clientId)) {
+                        continue;
+                    }
+                }
+                if (aggregateUpstream.equals("clientport")) {
+                    clientPortId = Integer.parseInt(key.split("\\|")[++index].substring(2));
+                    if (!clientPortMap.containsKey(clientPortId)) {
+                        continue;
+                    }
+                }
+                if (aggregateDownstream.equals("vendor") || aggregateDownstream.equals("vendorport")) {
+                    vendorId = Integer.parseInt(key.split("\\|")[++index].substring(1));
+                    if (!vendorMap.containsKey(vendorId)) {
+                        continue;
+                    }
+                }
+                if (aggregateDownstream.equals("vendorport")) {
+                    vendorPortId = Integer.parseInt(key.split("\\|")[++index].substring(2));
+                    if (!vendorPortMap.containsKey(vendorPortId)) {
+                        continue;
+                    }
+                }
+
+                Row row = sheet.createRow(++line);
+                Cell cell = row.createCell(++column);
+                cell.setCellValue(date);
+                if (aggregateUpstream.equals("client") || aggregateUpstream.equals("clientport")) {
+                    cell = row.createCell(++column);
+                    cell.setCellValue(clientMap.get(clientId).getName());
+                }
+                if (aggregateUpstream.equals("clientport")) {
+                    cell = row.createCell(++column);
+                    cell.setCellValue(clientPortMap.get(clientPortId).getTagId().split("\\|")[0]);
+                    cell = row.createCell(++column);
+                    cell.setCellValue(clientPortMap.get(clientPortId).getName());
+                    cell = row.createCell(++column);
+                    cell.setCellValue(clientPortMap.get(clientPortId).getMode() == ClientPort.PORT_TYPE_SHARE ? "分成" : "竞价");
+                }
+                if (aggregateDownstream.equals("vendor") || aggregateDownstream.equals("vendorport")) {
+                    cell = row.createCell(++column);
+                    cell.setCellValue(vendorMap.get(vendorId).getName());
+                }
+                if (aggregateDownstream.equals("vendorport")) {
+                    cell = row.createCell(++column);
+                    cell.setCellValue(vendorPortMap.get(vendorPortId).getVendorMedia().getName());
+                    cell = row.createCell(++column);
+                    cell.setCellValue(vendorPortMap.get(vendorPortId).getTagId());
+                    cell = row.createCell(++column);
+                    cell.setCellValue(vendorPortMap.get(vendorPortId).getName());
+                    cell = row.createCell(++column);
+                    cell.setCellValue(vendorPortMap.get(vendorPortId).getMode() == VendorPort.PORT_TYPE_SHARE ? "分成" : "竞价");
+                }
+                cell = row.createCell(++column);
+                if (mediumUpstreamMap.containsKey(key) && mediumUpstreamMap.get(key).getImpression() != null) {
+                    cell.setCellValue(mediumUpstreamMap.get(key).getImpression());
+                    cell.setCellStyle(cellStyleAmount);
+                } else {
+                    cell.setCellValue("");
+                }
+                cell = row.createCell(++column);
+                if (mediumUpstreamMap.containsKey(key) && mediumUpstreamMap.get(key).getClick() != null) {
+                    cell.setCellValue(mediumUpstreamMap.get(key).getClick());
+                    cell.setCellStyle(cellStyleAmount);
+                } else {
+                    cell.setCellValue("");
+                }
+                cell = row.createCell(++column);
+                if (mediumUpstreamMap.containsKey(key) && mediumUpstreamMap.get(key).getIncome() != null) {
+                    cell.setCellValue(Math.round(mediumUpstreamMap.get(key).getIncome() / 1000.0) / 100.0);
+                    cell.setCellStyle(cellStyleCost);
+                } else {
+                    cell.setCellValue("");
+                }
+                cell = row.createCell(++column);
+
+                cell.setCellFormula("IFERROR(" + cellService.getExcelColumnLetter(column - 2) + (line + 1) + "/" + cellService.getExcelColumnLetter(column - 3) + (line + 1) + ", \"\")");
+                cell.setCellStyle(cellStylePercentage);
+                cell = row.createCell(++column);
+                cell.setCellFormula("IFERROR(" + cellService.getExcelColumnLetter(column - 2) + (line + 1) + "/" + cellService.getExcelColumnLetter(column - 4) + (line + 1) + "*1000, \"\")");
+                cell.setCellStyle(cellStyleCost);
+                cell = row.createCell(++column);
+                if (mediumDownstreamMap.containsKey(key) && mediumDownstreamMap.get(key).getImpression() != null) {
+                    cell.setCellValue(mediumDownstreamMap.get(key).getImpression());
+                    cell.setCellStyle(cellStyleAmount);
+                } else {
+                    cell.setCellValue("");
+                }
+                cell = row.createCell(++column);
+                if (mediumDownstreamMap.containsKey(key) && mediumDownstreamMap.get(key).getClick() != null) {
+                    cell.setCellValue(mediumDownstreamMap.get(key).getClick());
+                    cell.setCellStyle(cellStyleAmount);
+                } else {
+                    cell.setCellValue("");
+                }
+                cell = row.createCell(++column);
+                if (mediumDownstreamMap.containsKey(key) && mediumDownstreamMap.get(key).getOutcomeDownstream() != null) {
+                    cell.setCellValue(Math.round(mediumDownstreamMap.get(key).getOutcomeDownstream() / 1000.0) / 100.0);
+                    cell.setCellStyle(cellStyleCost);
+                } else {
+                    cell.setCellValue("");
+                }
+                cell = row.createCell(++column);
+                cell.setCellFormula("IFERROR(" + cellService.getExcelColumnLetter(column - 2) + (line + 1) + "/" + cellService.getExcelColumnLetter(column - 3) + (line + 1) + ", \"\")");
+                cell.setCellStyle(cellStylePercentage);
+                cell = row.createCell(++column);
+                cell.setCellFormula("IFERROR(" + cellService.getExcelColumnLetter(column - 2) + (line + 1) + "/" + cellService.getExcelColumnLetter(column - 4) + (line + 1) + "*1000, \"\")");
+                cell.setCellStyle(cellStyleCost);
+                cell = row.createCell(++column);
+                cell.setCellValue(performanceClientViewMap.get(key).getRequestv());
+                cell.setCellStyle(cellStyleAmount);
+                cell = row.createCell(++column);
+                cell.setCellValue(performanceClientViewMap.get(key).getResponse());
+                cell.setCellStyle(cellStyleAmount);
+                cell = row.createCell(++column);
+                cell.setCellFormula("IFERROR(" + cellService.getExcelColumnLetter(column - 1) + (line + 1) + "/" + cellService.getExcelColumnLetter(column - 2) + (line + 1) + ", \"\")");
+                cell.setCellStyle(cellStylePercentage);
+                cell = row.createCell(++column);
+                cell.setCellValue(performanceClientViewMap.get(key).getImpression());
+                cell.setCellStyle(cellStyleAmount);
+                cell = row.createCell(++column);
+                cell.setCellValue(performanceClientViewMap.get(key).getClick());
+                cell.setCellStyle(cellStyleAmount);
+                cell = row.createCell(++column);
+                cell.setCellFormula("IFERROR(" + cellService.getExcelColumnLetter(column - 1) + (line + 1) + "/" + cellService.getExcelColumnLetter(column - 2) + (line + 1) + ", \"\")");
+                cell.setCellStyle(cellStylePercentage);
+                cell = row.createCell(++column);
+                cell.setCellFormula("IFERROR(" + cellService.getExcelColumnLetter(column + 1) + (line + 1) + "/" + cellService.getExcelColumnLetter(column - 3) + (line + 1) + "*1000, \"\")");
+                cell.setCellStyle(cellStyleCost);
+                cell = row.createCell(++column);
+                cell.setCellValue(Math.round(performanceClientViewMap.get(key).getIncome() / 1000.0) / 100.0);
+                cell.setCellStyle(cellStyleCost);
+                cell = row.createCell(++column);
+                cell.setCellValue(Math.round((performanceClientViewMap.get(key).getOutcomeDownstream()) / 1000.0) / 100.0);
+                cell.setCellStyle(cellStyleCost);
+                cell = row.createCell(++column);
+                cell.setCellValue(Math.round((performanceClientViewMap.get(key).getIncome() - performanceClientViewMap.get(key).getOutcomeUpstream() + performanceClientViewMap.get(key).getOutcomeRebate() - performanceClientViewMap.get(key).getOutcomeDownstream()) / 1000.0) / 100.0);
+                cell.setCellStyle(cellStyleCost);
+                cell = row.createCell(++column);
+                cell.setCellFormula("IFERROR(" + cellService.getExcelColumnLetter(column - 3) + (line + 1) + "/" + cellService.getExcelColumnLetter(column - 10) + (line + 1) + "*10000, \"\")");
+                cell.setCellStyle(cellStyleCost);
+
+                cellService.adjustColumnWeight(sheet, 0, column + 1);
+            }
+        }
 
         try {
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();

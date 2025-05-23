@@ -390,4 +390,56 @@ public class BillController {
             .body(signList);
     }
 
+    @GetMapping(value = "/api/managed/summary/download", produces = "application/vnd.ms-excel")
+    public ResponseEntity<byte[]> downloadSummary(
+            @RequestParam(required = false) String queryUpstream,
+            @RequestParam(required = false) String queryDownstream,
+            @RequestParam(defaultValue = "day") String interval,
+            @RequestParam(defaultValue = "all") String aggregateUpstream,
+            @RequestParam(defaultValue = "all") String aggregateDownstream,
+            @RequestParam(defaultValue = "2024-01-31T00:00:00+08:00") String start,
+            @RequestParam(defaultValue = "2024-01-31T00:00:00+08:00") String end,
+            @RequestParam(defaultValue = "GMT+08:00") String timezone,
+            Authentication authentication) {
+        Query queryObjectUpstream = null;
+        Query queryObjectDownstream = null;
+        Timestamp startTimestamp = null;
+        Timestamp endTimestamp = null;
+        if (queryUpstream != null) {
+            try {
+                ObjectMapper objectMapper = new ObjectMapper();
+                queryObjectUpstream = objectMapper.readValue(queryUpstream, Query.class);
+
+                SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
+                startTimestamp = new Timestamp(df.parse(start).getTime());
+                endTimestamp = new Timestamp(df.parse(end).getTime());
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().build();
+            }
+        }
+        if (queryDownstream != null) {
+            try {
+                ObjectMapper objectMapper = new ObjectMapper();
+                queryObjectDownstream = objectMapper.readValue(queryDownstream, Query.class);
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().build();
+            }
+        }
+        byte[] signList = billService.downloadSummary(
+            authentication,
+            queryObjectUpstream,
+            queryObjectDownstream,
+            interval,
+            aggregateUpstream,
+            aggregateDownstream,
+            startTimestamp,
+            endTimestamp,
+            timezone);
+
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType("application/vnd.ms-excel"))
+            .header("Content-Disposition", "attachment; filename=summary.xlsx")
+            .body(signList);
+    }
+
 }
