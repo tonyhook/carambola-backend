@@ -46,6 +46,8 @@ public class PerformanceClient {
 
     protected Long eventM;
 
+    protected Long eventN;
+
     protected Long impression;
 
     protected Long click;
@@ -79,6 +81,7 @@ public class PerformanceClient {
         this.eventK = 0L;
         this.eventL = 0L;
         this.eventM = 0L;
+        this.eventN = 0L;
         this.impression = 0L;
         this.click = 0L;
         this.income = 0L;
@@ -221,6 +224,14 @@ public class PerformanceClient {
 
     public void setEventM(Long eventM) {
         this.eventM = eventM;
+    }
+
+    public Long getEventN() {
+        return this.eventN;
+    }
+
+    public void setEventN(Long eventN) {
+        this.eventN = eventN;
     }
 
     public Long getImpression() {

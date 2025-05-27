@@ -1490,7 +1490,7 @@ public class PerformanceService {
         performanceView.setRequest(
             performanceClient.getEventA() + performanceClient.getEventB() + performanceClient.getEventC() + performanceClient.getEventD() + performanceClient.getEventE() +
             performanceClient.getEventF() + performanceClient.getEventG() + performanceClient.getEventH() + performanceClient.getEventK() + performanceClient.getEventL() +
-            performanceClient.getEventM());
+            performanceClient.getEventM() + performanceClient.getEventN());
         performanceView.setRequestv(
             performanceClient.getEventC() + performanceClient.getEventD() + performanceClient.getEventE() + performanceClient.getEventF() + performanceClient.getEventK());
         performanceView.setResponse(
