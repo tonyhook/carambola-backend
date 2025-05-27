@@ -31,7 +31,7 @@ public class TrafficControlController {
         this.trafficControlService = trafficControlService;
     }
 
-    @GetMapping(value = "/api/managed/trafficcontrol", produces = "application/json; charset=UTF-8")
+    @GetMapping(value = "/api/managed/trafficcontrol/query", produces = "application/json; charset=UTF-8")
     public ResponseEntity<List<TrafficControl>> getTrafficControlList(
             @RequestParam(required = false) String query,
             Authentication authentication) {
@@ -48,6 +48,19 @@ public class TrafficControlController {
         List<TrafficControl> trafficControlList = trafficControlService.getTrafficControlList(
             authentication,
             queryObject);
+
+        return ResponseEntity.ok().body(trafficControlList);
+    }
+
+    @GetMapping(value = "/api/managed/trafficcontrol/port", produces = "application/json; charset=UTF-8")
+    public ResponseEntity<List<TrafficControl>> getTrafficControlList(
+            @RequestParam(required = false) Integer clientPortId,
+            @RequestParam(required = false) Integer vendorPortId,
+            Authentication authentication) {
+        List<TrafficControl> trafficControlList = trafficControlService.getTrafficControlList(
+            authentication,
+            clientPortId,
+            vendorPortId);
 
         return ResponseEntity.ok().body(trafficControlList);
     }

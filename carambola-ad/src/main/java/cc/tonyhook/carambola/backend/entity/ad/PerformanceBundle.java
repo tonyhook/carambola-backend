@@ -18,35 +18,36 @@ import jakarta.persistence.Table;
 })
 public class PerformanceBundle {
 
-    public final static String PERFORMANCE_NO_PROTOCOL          = "A"; // -1 as client port
-    public final static String PERFORMANCE_BAD_PROTOCOL_VER     = "B"; // -1 as client port
-    public final static String PERFORMANCE_NO_ITEM              = "C"; // -1 as client port
-    public final static String PERFORMANCE_NOT_REGISTERED       = "D"; // -1 as client port
-    public final static String PERFORMANCE_NO_MATCH_CONNECTION  = "E"; // -1 as client port
-    public final static String PERFORMANCE_BEYOND_VENDOR_QPS    = "F"; // -1 as client port
-    public final static String PERFORMANCE_ANTI_FRAUD           = "G"; // -1 as client port
-    public final static String PERFORMANCE_NO_RESPONSE          = "H"; // -1 as client port
-    public final static String PERFORMANCE_SHARE_SUCCESS        = "I"; // one in each request
-    public final static String PERFORMANCE_BIDDING_SUCCESS      = "J"; // one in each request
+    public final static String PERFORMANCE_NO_PROTOCOL                   = "A"; // -1 as client port
+    public final static String PERFORMANCE_BAD_PROTOCOL_VER              = "B"; // -1 as client port
+    public final static String PERFORMANCE_NO_ITEM                       = "C"; // -1 as client port
+    public final static String PERFORMANCE_NOT_REGISTERED                = "D"; // -1 as client port
+    public final static String PERFORMANCE_NO_MATCH_CONNECTION           = "E"; // -1 as client port
+    public final static String PERFORMANCE_BEYOND_VENDOR_TRAFFIC_CONTROL = "F"; // -1 as client port
+    public final static String PERFORMANCE_VENDOR_ANTI_FRAUD             = "G"; // -1 as client port
+    public final static String PERFORMANCE_NO_RESPONSE                   = "H"; // -1 as client port
+    public final static String PERFORMANCE_SHARE_SUCCESS                 = "I"; // one in each request
+    public final static String PERFORMANCE_BIDDING_SUCCESS               = "J"; // one in each request
 
     // by connection, multiple in each request
-    public final static String PERFORMANCE_TIMEOUT              = "ZA";
-    public final static String PERFORMANCE_REQUEST_FAILED       = "ZB";
-    public final static String PERFORMANCE_NOT_BIDDING          = "ZC";
-    public final static String PERFORMANCE_SHARE_OK             = "ZD";
-    public final static String PERFORMANCE_BIDDING_OK           = "ZE";
-    public final static String PERFORMANCE_TRANS_FROM_FAILED    = "ZF";
-    public final static String PERFORMANCE_TRANS_TO_FAILED      = "ZG";
-    public final static String PERFORMANCE_UNKNOWN_CLIENT       = "ZH";
-    public final static String PERFORMANCE_BIDDING_LOSE         = "ZI";
-    public final static String PERFORMANCE_BIDDING_WIN          = "ZJ";
-    public final static String PERFORMANCE_BIDDING_INVALID      = "ZK";
-    public final static String PERFORMANCE_BEYOND_CLIENT_QPS    = "ZL";
-    public final static String PERFORMANCE_LOST_KEY_FIELD       = "ZM";
+    public final static String PERFORMANCE_TIMEOUT                       = "ZA";
+    public final static String PERFORMANCE_REQUEST_FAILED                = "ZB";
+    public final static String PERFORMANCE_NOT_BIDDING                   = "ZC";
+    public final static String PERFORMANCE_SHARE_OK                      = "ZD";
+    public final static String PERFORMANCE_BIDDING_OK                    = "ZE";
+    public final static String PERFORMANCE_TRANS_FROM_FAILED             = "ZF";
+    public final static String PERFORMANCE_TRANS_TO_FAILED               = "ZG";
+    public final static String PERFORMANCE_UNKNOWN_CLIENT                = "ZH";
+    public final static String PERFORMANCE_BIDDING_LOSE                  = "ZI";
+    public final static String PERFORMANCE_BIDDING_WIN                   = "ZJ";
+    public final static String PERFORMANCE_BIDDING_INVALID               = "ZK";
+    public final static String PERFORMANCE_BEYOND_CLIENT_TRAFFIC_CONTROL = "ZL";
+    public final static String PERFORMANCE_LOST_KEY_FIELD                = "ZM";
+    public final static String PERFORMANCE_CLIENT_ANTI_FRAUD             = "ZN";
 
-    public final static String TRACKING_IMPRESSION              = "a";
-    public final static String TRACKING_CLICK                   = "b";
-    public final static String TRACKING_GENERAL                 = "z";
+    public final static String TRACKING_IMPRESSION                       = "a";
+    public final static String TRACKING_CLICK                            = "b";
+    public final static String TRACKING_GENERAL                          = "z";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

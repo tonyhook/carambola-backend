@@ -35,7 +35,20 @@ public class TrafficControlService {
         List<VendorPort> vendorPortList = partnerService.getQualifiedVendorPortList(qualifiedVendorList, query);
         List<Integer> vendorPortIdList = vendorPortList.stream().map(VendorPort::getId).distinct().collect(Collectors.toList());
 
+        if (query.filter.get("clientPort") != null && query.filter.get("clientPort").contains("-1")) {
+            clientPortIdList.add(-1);
+        }
+        if (query.filter.get("vendorPort") != null && query.filter.get("vendorPort").contains("-1")) {
+            vendorPortIdList.add(-1);
+        }
+
         List<TrafficControl> trafficControlList = trafficControlRepository.findByClientPortInAndVendorPortIn(clientPortIdList, vendorPortIdList);
+
+        return trafficControlList;
+    }
+
+    public List<TrafficControl> getTrafficControlList(Authentication authentication, Integer clientPortId, Integer vendorPortId) {
+        List<TrafficControl> trafficControlList = trafficControlRepository.findByClientPortAndVendorPort(clientPortId, vendorPortId);
 
         return trafficControlList;
     }
