@@ -24,6 +24,7 @@ import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DataFormat;
 import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -381,10 +382,19 @@ public class BillService {
 
         List<Bill> billList = getBillList(clientPortIdList, start, end);
 
+        List<PerformanceClient> performanceClientList = performanceService.queryPerformanceClientList(authentication, query, "day", true, start, end, timezone);
+        List<PerformanceView> performanceClientViewList = new ArrayList<PerformanceView>();
+        for (PerformanceClient performanceClient : performanceClientList) {
+            PerformanceView performanceClientView = performanceService.convertClientToView(performanceClient, interval, timezone);
+
+            performanceClientViewList.add(performanceClientView);
+        }
+
         return generateBillReport(
             interval,
             aggregateUpstream,
             billList,
+            performanceClientViewList,
             clientMap,
             clientPortMap,
             timezone);
@@ -1009,10 +1019,19 @@ public class BillService {
             qualifiedSignList.add(sign);
         }
 
+        List<PerformanceVendor> performanceVendorList = performanceService.queryPerformanceVendorList(authentication, query, "day", true, start, end, timezone);
+        List<PerformanceView> performanceVendorViewList = new ArrayList<PerformanceView>();
+        for (PerformanceVendor performanceVendor : performanceVendorList) {
+            PerformanceView performanceVendorView = performanceService.convertVendorToView(performanceVendor, interval, timezone);
+
+            performanceVendorViewList.add(performanceVendorView);
+        }
+
         return generateSignReport(
             interval,
             aggregateDownstream,
             qualifiedSignList,
+            performanceVendorViewList,
             clientPortMap,
             vendorMap,
             vendorPortMap,
@@ -1494,6 +1513,7 @@ public class BillService {
             String interval,
             String aggregateUpstream,
             List<Bill> billList,
+            List<PerformanceView> performanceClientViewList,
             Map<Integer, Client> clientMap,
             Map<Integer, ClientPort> clientPortMap,
             String timezone) {
@@ -1525,27 +1545,76 @@ public class BillService {
                 billNew.setDate(bill.getDate());
                 billNew.setTagId(bill.getTagId());
                 billNew.setClientPort(bill.getClientPort());
-                billNew.setRequest(0L);
-                billNew.setResponse(0L);
-                billNew.setImpression(0L);
-                billNew.setClick(0L);
-                billNew.setCost(0L);
+                billNew.setRequest(null);
+                billNew.setResponse(null);
+                billNew.setImpression(null);
+                billNew.setClick(null);
+                billNew.setCost(null);
 
                 billMap.put(key, billNew);
             }
 
             Bill billAggregated = billMap.get(key);
-            billAggregated.setRequest(billAggregated.getRequest() + (bill.getRequest() == null ? 0 : bill.getRequest()));
-            billAggregated.setResponse(billAggregated.getResponse() + (bill.getResponse() == null ? 0 : bill.getResponse()));
-            billAggregated.setImpression(billAggregated.getImpression() + (bill.getImpression() == null ? 0 : bill.getImpression()));
-            billAggregated.setClick(billAggregated.getClick() + (bill.getClick() == null ? 0 : bill.getClick()));
-            billAggregated.setCost(billAggregated.getCost() + (bill.getCost() == null ? 0 : bill.getCost()));
+            if (bill.getRequest() != null) {
+                billAggregated.setRequest((billAggregated.getRequest() == null ? 0 : billAggregated.getRequest()) + bill.getRequest());
+            }
+            if (bill.getResponse() != null) {
+                billAggregated.setResponse((billAggregated.getResponse() == null ? 0 : billAggregated.getResponse()) + bill.getResponse());
+            }
+            if (bill.getImpression() != null) {
+                billAggregated.setImpression((billAggregated.getImpression() == null ? 0 : billAggregated.getImpression()) + bill.getImpression());
+            }
+            if (bill.getClick() != null) {
+                billAggregated.setClick((billAggregated.getClick() == null ? 0 : billAggregated.getClick()) + bill.getClick());
+            }
+            if (bill.getCost() != null) {
+                billAggregated.setCost((billAggregated.getCost() == null ? 0 : billAggregated.getCost()) + bill.getCost());
+            }
+        }
+
+        Map<String, PerformanceView> performanceClientViewMap = new HashMap<String, PerformanceView>();
+        for (PerformanceView performanceClientView : performanceClientViewList) {
+            String key = performanceClientView.getTime() + "|";
+            if (aggregateUpstream.equals("client") || aggregateUpstream.equals("clientport")) {
+                key += "C" + clientPortMap.get(performanceClientView.getClientPort()).getClient().getId() + "|";
+            }
+            if (aggregateUpstream.equals("clientport")) {
+                key += "CP" + performanceClientView.getClientPort() + "|";
+            }
+
+            if (!performanceClientViewMap.containsKey(key)) {
+                PerformanceView performanceClientViewNew = new PerformanceView();
+
+                performanceClientViewMap.put(key, performanceClientViewNew);
+            }
+
+            PerformanceView performanceClientViewAggregated = performanceClientViewMap.get(key);
+            performanceClientViewAggregated.setRequest(performanceClientViewAggregated.getRequest() + performanceClientView.getRequest());
+            performanceClientViewAggregated.setResponse(performanceClientViewAggregated.getResponse() + performanceClientView.getResponse());
+            performanceClientViewAggregated.setRequestv(performanceClientViewAggregated.getRequestv() + performanceClientView.getRequestv());
+            performanceClientViewAggregated.setResponsev(performanceClientViewAggregated.getResponsev() + performanceClientView.getResponsev());
+            performanceClientViewAggregated.setImpression(performanceClientViewAggregated.getImpression() + performanceClientView.getImpression());
+            performanceClientViewAggregated.setClick(performanceClientViewAggregated.getClick() + performanceClientView.getClick());
+            if (clientPortMap.get(performanceClientView.getClientPort()).getMode() == ClientPort.PORT_TYPE_BIDDING) {
+                performanceClientViewAggregated.setIncome(performanceClientViewAggregated.getIncome() + performanceClientView.getIncome());
+            }
+            if (clientPortMap.get(performanceClientView.getClientPort()).getMode() == ClientPort.PORT_TYPE_SHARE) {
+                performanceClientViewAggregated.setIncome(billMap.containsKey(key) && billMap.get(key).getCost() != null ? billMap.get(key).getCost() : 0L);
+            }
+            performanceClientViewAggregated.setOutcomeUpstream(performanceClientViewAggregated.getOutcomeUpstream() + performanceClientView.getOutcomeUpstream());
+            performanceClientViewAggregated.setOutcomeRebate(performanceClientViewAggregated.getOutcomeRebate() + performanceClientView.getOutcomeRebate());
+            performanceClientViewAggregated.setOutcomeDownstream(performanceClientViewAggregated.getOutcomeDownstream() + performanceClientView.getOutcomeDownstream());
         }
 
         Workbook workbook = new XSSFWorkbook();
         DataFormat format = workbook.createDataFormat();
+        Font fontPerformance = workbook.createFont();
+        fontPerformance.setItalic(true);
         CellStyle cellStyleAmount = workbook.createCellStyle();
         cellStyleAmount.setDataFormat(format.getFormat("##0"));
+        CellStyle cellStyleAmountPerformance = workbook.createCellStyle();
+        cellStyleAmountPerformance.setDataFormat(format.getFormat("##0"));
+        cellStyleAmountPerformance.setFont(fontPerformance);
         CellStyle cellStyleCost = workbook.createCellStyle();
         cellStyleCost.setDataFormat(format.getFormat("0.00"));
         Sheet sheet = workbook.createSheet("上游账单");
@@ -1623,28 +1692,32 @@ public class BillService {
                 cell.setCellValue(billMap.get(key).getRequest());
                 cell.setCellStyle(cellStyleAmount);
             } else {
-                cell.setCellValue("--");
+                cell.setCellValue(performanceClientViewMap.get(key).getRequestv());
+                cell.setCellStyle(cellStyleAmountPerformance);
             }
             cell = row.createCell(++column);
             if (billMap.get(key).getResponse() != null) {
                 cell.setCellValue(billMap.get(key).getResponse());
                 cell.setCellStyle(cellStyleAmount);
             } else {
-                cell.setCellValue("--");
+                cell.setCellValue(performanceClientViewMap.get(key).getResponse());
+                cell.setCellStyle(cellStyleAmountPerformance);
             }
             cell = row.createCell(++column);
             if (billMap.get(key).getImpression() != null) {
                 cell.setCellValue(billMap.get(key).getImpression());
                 cell.setCellStyle(cellStyleAmount);
             } else {
-                cell.setCellValue("--");
+                cell.setCellValue(performanceClientViewMap.get(key).getImpression());
+                cell.setCellStyle(cellStyleAmountPerformance);
             }
             cell = row.createCell(++column);
             if (billMap.get(key).getClick() != null) {
                 cell.setCellValue(billMap.get(key).getClick());
                 cell.setCellStyle(cellStyleAmount);
             } else {
-                cell.setCellValue("--");
+                cell.setCellValue(performanceClientViewMap.get(key).getClick());
+                cell.setCellStyle(cellStyleAmountPerformance);
             }
         }
 
@@ -1665,6 +1738,7 @@ public class BillService {
             String interval,
             String aggregateDownstream,
             List<Sign> signList,
+            List<PerformanceView> performanceVendorViewList,
             Map<Integer, ClientPort> clientPortMap,
             Map<Integer, Vendor> vendorMap,
             Map<Integer, VendorPort> vendorPortMap,
@@ -1697,25 +1771,64 @@ public class BillService {
                 signNew.setDate(sign.getDate());
                 signNew.setTagId(sign.getTagId());
                 signNew.setVendorPort(sign.getVendorPort());
-                signNew.setRequest(0L);
-                signNew.setResponse(0L);
-                signNew.setImpression(0L);
-                signNew.setClick(0L);
-                signNew.setCost(0L);
+                signNew.setRequest(null);
+                signNew.setResponse(null);
+                signNew.setImpression(null);
+                signNew.setClick(null);
+                signNew.setCost(null);
                 signNew.setStatus(sign.getStatus());
 
                 signMap.put(key, signNew);
             }
 
             Sign signAggregated = signMap.get(key);
-            signAggregated.setRequest(signAggregated.getRequest() + (sign.getRequest() == null ? 0 : sign.getRequest()));
-            signAggregated.setResponse(signAggregated.getResponse() + (sign.getResponse() == null ? 0 : sign.getResponse()));
-            signAggregated.setImpression(signAggregated.getImpression() + (sign.getImpression() == null ? 0 : sign.getImpression()));
-            signAggregated.setClick(signAggregated.getClick() + (sign.getClick() == null ? 0 : sign.getClick()));
-            signAggregated.setCost(signAggregated.getCost() + (sign.getCost() == null ? 0 : sign.getCost()));
+            if (sign.getRequest() != null) {
+                signAggregated.setRequest((signAggregated.getRequest() == null ? 0 : signAggregated.getRequest()) + sign.getRequest());
+            }
+            if (sign.getResponse() != null) {
+                signAggregated.setResponse((signAggregated.getResponse() == null ? 0 : signAggregated.getResponse()) + sign.getResponse());
+            }
+            if (sign.getImpression() != null) {
+                signAggregated.setImpression((signAggregated.getImpression() == null ? 0 : signAggregated.getImpression()) + sign.getImpression());
+            }
+            if (sign.getClick() != null) {
+                signAggregated.setClick((signAggregated.getClick() == null ? 0 : signAggregated.getClick()) + sign.getClick());
+            }
+            if (sign.getCost() != null) {
+                signAggregated.setCost((signAggregated.getCost() == null ? 0 : signAggregated.getCost()) + sign.getCost());
+            }
             if (!sign.getStatus().equals(signAggregated.getStatus())) {
                 signAggregated.setStatus(0);
             }
+        }
+
+        Map<String, PerformanceView> performanceVendorViewMap = new HashMap<String, PerformanceView>();
+        for (PerformanceView performanceVendorView : performanceVendorViewList) {
+            String key = performanceVendorView.getTime() + "|";
+            if (aggregateDownstream.equals("vendor") || aggregateDownstream.equals("vendorport")) {
+                key += "V" + vendorPortMap.get(performanceVendorView.getVendorPort()).getVendor().getId() + "|";
+            }
+            if (aggregateDownstream.equals("vendorport")) {
+                key += "VP" + performanceVendorView.getVendorPort() + "|";
+            }
+
+            if (!performanceVendorViewMap.containsKey(key)) {
+                PerformanceView performanceVendorViewNew = new PerformanceView();
+
+                performanceVendorViewMap.put(key, performanceVendorViewNew);
+            }
+
+            PerformanceView performanceVendorViewAggregated = performanceVendorViewMap.get(key);
+            performanceVendorViewAggregated.setRequest(performanceVendorViewAggregated.getRequest() + performanceVendorView.getRequest());
+            performanceVendorViewAggregated.setResponse(performanceVendorViewAggregated.getResponse() + performanceVendorView.getResponse());
+            performanceVendorViewAggregated.setRequestv(performanceVendorViewAggregated.getRequestv() + performanceVendorView.getRequestv());
+            performanceVendorViewAggregated.setResponsev(performanceVendorViewAggregated.getResponsev() + performanceVendorView.getResponsev());
+            performanceVendorViewAggregated.setImpression(performanceVendorViewAggregated.getImpression() + performanceVendorView.getImpression());
+            performanceVendorViewAggregated.setClick(performanceVendorViewAggregated.getClick() + performanceVendorView.getClick());
+            performanceVendorViewAggregated.setIncome(performanceVendorViewAggregated.getIncome() + performanceVendorView.getIncome());
+            performanceVendorViewAggregated.setOutcomeUpstream(performanceVendorViewAggregated.getOutcomeUpstream() + performanceVendorView.getOutcomeUpstream());
+            performanceVendorViewAggregated.setOutcomeRebate(performanceVendorViewAggregated.getOutcomeRebate() + performanceVendorView.getOutcomeRebate());
+            performanceVendorViewAggregated.setOutcomeDownstream(performanceVendorViewAggregated.getOutcomeDownstream() + performanceVendorView.getOutcomeDownstream());
         }
 
         List<Timestamp> timestamps = signList.stream().map(sign -> sign.getDate()).distinct().toList();
@@ -1728,10 +1841,18 @@ public class BillService {
 
         Workbook workbook = new XSSFWorkbook();
         DataFormat format = workbook.createDataFormat();
+        Font fontPerformance = workbook.createFont();
+        fontPerformance.setItalic(true);
         CellStyle cellStyleAmount = workbook.createCellStyle();
         cellStyleAmount.setDataFormat(format.getFormat("##0"));
+        CellStyle cellStyleAmountPerformance = workbook.createCellStyle();
+        cellStyleAmountPerformance.setDataFormat(format.getFormat("##0"));
+        cellStyleAmountPerformance.setFont(fontPerformance);
         CellStyle cellStyleCost = workbook.createCellStyle();
         cellStyleCost.setDataFormat(format.getFormat("0.00"));
+        CellStyle cellStyleCostPerformance = workbook.createCellStyle();
+        cellStyleCostPerformance.setDataFormat(format.getFormat("0.00"));
+        cellStyleCostPerformance.setFont(fontPerformance);
         CellStyle cellStylePercentage = workbook.createCellStyle();
         cellStylePercentage.setDataFormat(format.getFormat("0.00%"));
         Sheet sheet = workbook.createSheet("下游账单");
@@ -1813,57 +1934,74 @@ public class BillService {
                 cell.setCellValue(vendorPortMap.get(vendorPortId).getName());
             }
             cell = row.createCell(++column);
-            cell.setCellValue(Math.round(signMap.get(key).getCost() / 1000.0) / 100.0);
-            cell.setCellStyle(cellStyleCost);
+            if (signMap.get(key).getCost() != null) {
+                cell.setCellValue(Math.round(signMap.get(key).getCost() / 1000.0) / 100.0);
+                cell.setCellStyle(cellStyleCost);
+            } else {
+                if (performanceVendorViewMap.containsKey(key)) {
+                    cell.setCellValue(Math.round(performanceVendorViewMap.get(key).getOutcomeDownstream() / 1000.0) / 100.0);
+                    cell.setCellStyle(cellStyleCostPerformance);
+                } else {
+                    cell.setCellValue("--");
+                }
+            }
             cell = row.createCell(++column);
             if (signMap.get(key).getImpression() != null) {
                 cell.setCellValue(signMap.get(key).getImpression());
                 cell.setCellStyle(cellStyleAmount);
             } else {
-                cell.setCellValue("--");
+                if (performanceVendorViewMap.containsKey(key)) {
+                    cell.setCellValue(performanceVendorViewMap.get(key).getImpression());
+                    cell.setCellStyle(cellStyleAmountPerformance);
+                } else {
+                    cell.setCellValue("--");
+                }
             }
             cell = row.createCell(++column);
             if (signMap.get(key).getClick() != null) {
                 cell.setCellValue(signMap.get(key).getClick());
                 cell.setCellStyle(cellStyleAmount);
             } else {
-                cell.setCellValue("--");
+                if (performanceVendorViewMap.containsKey(key)) {
+                    cell.setCellValue(performanceVendorViewMap.get(key).getClick());
+                    cell.setCellStyle(cellStyleAmountPerformance);
+                } else {
+                    cell.setCellValue("--");
+                }
             }
             cell = row.createCell(++column);
-            if (signMap.get(key).getImpression() != null && signMap.get(key).getClick() != null && signMap.get(key).getImpression() != 0) {
-                cell.setCellValue(1.0 * signMap.get(key).getClick() / signMap.get(key).getImpression());
-                cell.setCellStyle(cellStylePercentage);
-            } else {
-                cell.setCellValue("--");
-            }
+            cell.setCellFormula("IFERROR(" + cellService.getExcelColumnLetter(column - 1) + (line + 1) + "/" + cellService.getExcelColumnLetter(column - 2) + (line + 1) + ", \"\")");
+            cell.setCellStyle(cellStylePercentage);
             cell = row.createCell(++column);
-            if (signMap.get(key).getImpression() != null && signMap.get(key).getCost() != null && signMap.get(key).getImpression() != 0) {
-                cell.setCellValue(Math.round(1.0 * signMap.get(key).getCost() / signMap.get(key).getImpression()) / 100.0);
-                cell.setCellStyle(cellStyleCost);
-            } else {
-                cell.setCellValue("--");
-            }
+            cell.setCellFormula("IFERROR(" + cellService.getExcelColumnLetter(column - 4) + (line + 1) + "/" + cellService.getExcelColumnLetter(column - 3) + (line + 1) + "*1000, \"\")");
+            cell.setCellStyle(cellStyleCost);
             cell = row.createCell(++column);
             if (signMap.get(key).getRequest() != null) {
                 cell.setCellValue(signMap.get(key).getRequest());
                 cell.setCellStyle(cellStyleAmount);
             } else {
-                cell.setCellValue("--");
+                if (performanceVendorViewMap.containsKey(key)) {
+                    cell.setCellValue(performanceVendorViewMap.get(key).getRequestv());
+                    cell.setCellStyle(cellStyleAmountPerformance);
+                } else {
+                    cell.setCellValue("--");
+                }
             }
             cell = row.createCell(++column);
             if (signMap.get(key).getResponse() != null) {
                 cell.setCellValue(signMap.get(key).getResponse());
                 cell.setCellStyle(cellStyleAmount);
             } else {
-                cell.setCellValue("--");
+                if (performanceVendorViewMap.containsKey(key)) {
+                    cell.setCellValue(performanceVendorViewMap.get(key).getResponse());
+                    cell.setCellStyle(cellStyleAmountPerformance);
+                } else {
+                    cell.setCellValue("--");
+                }
             }
             cell = row.createCell(++column);
-            if (signMap.get(key).getRequest() != null && signMap.get(key).getClick() != null && signMap.get(key).getRequest() != 0) {
-                cell.setCellValue(1.0 * signMap.get(key).getResponse() / signMap.get(key).getRequest());
-                cell.setCellStyle(cellStylePercentage);
-            } else {
-                cell.setCellValue("--");
-            }
+            cell.setCellFormula("IFERROR(" + cellService.getExcelColumnLetter(column - 1) + (line + 1) + "/" + cellService.getExcelColumnLetter(column - 2) + (line + 1) + ", \"--\")");
+            cell.setCellStyle(cellStylePercentage);
         }
 
         cellService.adjustColumnWeight(sheet, 0, column + 1);
