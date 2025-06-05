@@ -58,6 +58,8 @@ public class ClientPort {
     @Column(length = 65536)
     private String filter;
 
+    private String filterType;
+
     @Lob
     @Column(length = 65536)
     private String remark;
@@ -164,6 +166,14 @@ public class ClientPort {
 
     public void setFilter(String filter) {
         this.filter = filter;
+    }
+
+    public String getFilterType() {
+        return this.filterType;
+    }
+
+    public void setFilterType(String filterType) {
+        this.filterType = filterType;
     }
 
     public String getRemark() {
