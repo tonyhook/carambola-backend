@@ -179,7 +179,7 @@ public class BillService {
                                 keyFieldFound.add("时间");
                                 header.put("时间", ci);
                             }
-                            if (caption.equals("代码位") || caption.equals("广告位ID") || caption.equals("广告位 Token")) {
+                            if (caption.equals("代码位") || caption.equals("广告位ID") || caption.equals("广告位id") || caption.equals("广告位 Token")) {
                                 keyFieldFound.add("代码位");
                                 header.put("代码位", ci);
                             }
@@ -199,7 +199,7 @@ public class BillService {
                                 keyFieldFound.add("点击量");
                                 header.put("点击量", ci);
                             }
-                            if (caption.equals("请求量") || caption.equals("广告请求量") || caption.equals("请求") || caption.equals("请求数")) {
+                            if (caption.equals("请求量") || caption.equals("广告请求量") || caption.equals("请求") || caption.equals("请求数") || caption.equals("有效请求数")) {
                                 header.put("请求量", ci);
                             }
                             if (caption.equals("响应量") || caption.equals("广告返回量") || caption.equals("填充数") || caption.equals("返回量")) {
