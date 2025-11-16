@@ -2,20 +2,6 @@ package cc.tonyhook.carambola.backend.entity.ad;
 
 import java.sql.Timestamp;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Index;
-import jakarta.persistence.Table;
-
-@Entity
-@Table(name = "ad_performance_bundle", indexes = {
-    @Index(columnList = "clientPort"),
-    @Index(columnList = "vendorPort"),
-    @Index(columnList = "time"),
-    @Index(columnList = "event"),
-})
 public class PerformanceBundle {
 
     public final static String PERFORMANCE_NO_PROTOCOL                   = "A"; // -1 as client port
@@ -50,10 +36,6 @@ public class PerformanceBundle {
     public final static String TRACKING_CLICK                            = "b";
     public final static String TRACKING_GENERAL                          = "z";
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
-
     private Integer clientPort;
 
     private Integer vendorPort;
@@ -79,14 +61,6 @@ public class PerformanceBundle {
         this.time = time;
         this.event = event;
         this.amount = 0L;
-    }
-
-    public Integer getId() {
-        return this.id;
-    }
-
-    public void setId(Integer id) {
-        this.id = id;
     }
 
     public Integer getClientPort() {
