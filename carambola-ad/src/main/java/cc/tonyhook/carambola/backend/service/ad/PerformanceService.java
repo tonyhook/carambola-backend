@@ -44,16 +44,12 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
-import cc.tonyhook.carambola.backend.dao.ad.FinanceBundleRepository;
-import cc.tonyhook.carambola.backend.dao.ad.FinanceRepository;
-import cc.tonyhook.carambola.backend.dao.ad.PerformanceBundleRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientBundleDayRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientBundleHourRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientBundleQuarterRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientDayRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientHourRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientQuarterRepository;
-import cc.tonyhook.carambola.backend.dao.ad.PerformanceRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceVendorBundleDayRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceVendorBundleHourRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceVendorBundleQuarterRepository;
@@ -96,8 +92,6 @@ import io.lettuce.core.api.StatefulConnection;
 @Service
 public class PerformanceService {
 
-    private final PerformanceRepository performanceRepository;
-    private final PerformanceBundleRepository performanceBundleRepository;
     private final PerformanceClientQuarterRepository performanceClientQuarterRepository;
     private final PerformanceClientHourRepository performanceClientHourRepository;
     private final PerformanceClientDayRepository performanceClientDayRepository;
@@ -110,8 +104,6 @@ public class PerformanceService {
     private final PerformanceVendorBundleQuarterRepository performanceVendorBundleQuarterRepository;
     private final PerformanceVendorBundleHourRepository performanceVendorBundleHourRepository;
     private final PerformanceVendorBundleDayRepository performanceVendorBundleDayRepository;
-    private final FinanceRepository financeRepository;
-    private final FinanceBundleRepository financeBundleRepository;
     private final TrafficControlService trafficControlService;
 
     private final CellService cellService;
@@ -122,8 +114,6 @@ public class PerformanceService {
     private final PartnerService partnerService;
 
     public PerformanceService(
-            PerformanceRepository performanceRepository,
-            PerformanceBundleRepository performanceBundleRepository,
             PerformanceClientQuarterRepository performanceClientQuarterRepository,
             PerformanceClientHourRepository performanceClientHourRepository,
             PerformanceClientDayRepository performanceClientDayRepository,
@@ -136,8 +126,6 @@ public class PerformanceService {
             PerformanceVendorBundleQuarterRepository performanceVendorBundleQuarterRepository,
             PerformanceVendorBundleHourRepository performanceVendorBundleHourRepository,
             PerformanceVendorBundleDayRepository performanceVendorBundleDayRepository,
-            FinanceRepository financeRepository,
-            FinanceBundleRepository financeBundleRepository,
             TrafficControlService trafficControlService,
             CellService cellService,
             ClientMediaService clientMediaService,
@@ -146,8 +134,6 @@ public class PerformanceService {
             VendorPortService vendorPortService,
             PartnerService partnerService
     ) {
-        this.performanceRepository = performanceRepository;
-        this.performanceBundleRepository = performanceBundleRepository;
         this.performanceClientQuarterRepository = performanceClientQuarterRepository;
         this.performanceClientHourRepository = performanceClientHourRepository;
         this.performanceClientDayRepository = performanceClientDayRepository;
@@ -160,8 +146,6 @@ public class PerformanceService {
         this.performanceVendorBundleQuarterRepository = performanceVendorBundleQuarterRepository;
         this.performanceVendorBundleHourRepository = performanceVendorBundleHourRepository;
         this.performanceVendorBundleDayRepository = performanceVendorBundleDayRepository;
-        this.financeRepository = financeRepository;
-        this.financeBundleRepository = financeBundleRepository;
         this.trafficControlService = trafficControlService;
         this.cellService = cellService;
         this.clientMediaService = clientMediaService;
@@ -288,8 +272,6 @@ public class PerformanceService {
     }
 
     public List<Performance> addAllPerformance(List<Performance> newPerformanceList) {
-        // List<Performance> updatedPerformanceList = performanceRepository.saveAll(newPerformanceList);
-
         Calendar performance_calendar = Calendar.getInstance();
         Map<String, String> performanceData = new HashMap<String, String>();
 
@@ -306,8 +288,6 @@ public class PerformanceService {
     }
 
     public List<PerformanceBundle> addAllPerformanceBundle(List<PerformanceBundle> newPerformanceBundleList) {
-        // List<PerformanceBundle> updatedPerformanceBundleList = performanceBundleRepository.saveAll(newPerformanceBundleList);
-
         Calendar performance_calendar = Calendar.getInstance();
         Map<String, String> performanceBundleData = new HashMap<String, String>();
 
@@ -324,7 +304,7 @@ public class PerformanceService {
     }
 
     public List<Performance> getPerformanceList(Timestamp start, Timestamp end) {
-        List<Performance> performanceList = performanceRepository.findByTimeBetween(start, end);
+        List<Performance> performanceList = new ArrayList<Performance>();
 
         Calendar base_calendar = Calendar.getInstance();
         int base_hour = base_calendar.get(Calendar.HOUR_OF_DAY);
@@ -369,7 +349,7 @@ public class PerformanceService {
     }
 
     public List<PerformanceBundle> getPerformanceBundleList(Timestamp start, Timestamp end) {
-        List<PerformanceBundle> performanceBundleList = performanceBundleRepository.findByTimeBetween(start, end);
+        List<PerformanceBundle> performanceBundleList = new ArrayList<PerformanceBundle>();
 
         Calendar base_calendar = Calendar.getInstance();
         int base_hour = base_calendar.get(Calendar.HOUR_OF_DAY);
@@ -414,8 +394,6 @@ public class PerformanceService {
     }
 
     public List<Finance> addAllFinance(List<Finance> newFinanceList) {
-        // List<Finance> updatedFinanceList = financeRepository.saveAll(newFinanceList);
-
         Calendar finance_calendar = Calendar.getInstance();
         Map<String, String> financeData = new HashMap<String, String>();
 
@@ -432,8 +410,6 @@ public class PerformanceService {
     }
 
     public List<FinanceBundle> addAllFinanceBundle(List<FinanceBundle> newFinanceBundleList) {
-        // List<FinanceBundle> updatedFinanceBundleList = financeBundleRepository.saveAll(newFinanceBundleList);
-
         Calendar finance_calendar = Calendar.getInstance();
         Map<String, String> financeBundleData = new HashMap<String, String>();
 
@@ -450,7 +426,7 @@ public class PerformanceService {
     }
 
     public List<Finance> getFinanceList(Timestamp start, Timestamp end) {
-        List<Finance> financeList = financeRepository.findByTimeBetween(start, end);
+        List<Finance> financeList = new ArrayList<Finance>();
 
         Calendar base_calendar = Calendar.getInstance();
         int base_hour = base_calendar.get(Calendar.HOUR_OF_DAY);
@@ -499,7 +475,7 @@ public class PerformanceService {
     }
 
     public List<FinanceBundle> getFinanceBundleList(Timestamp start, Timestamp end) {
-        List<FinanceBundle> financeBundleList = financeBundleRepository.findByTimeBetween(start, end);
+        List<FinanceBundle> financeBundleList = new ArrayList<FinanceBundle>();
 
         Calendar base_calendar = Calendar.getInstance();
         int base_hour = base_calendar.get(Calendar.HOUR_OF_DAY);

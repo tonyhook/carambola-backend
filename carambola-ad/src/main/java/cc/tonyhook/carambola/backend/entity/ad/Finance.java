@@ -2,24 +2,7 @@ package cc.tonyhook.carambola.backend.entity.ad;
 
 import java.sql.Timestamp;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Index;
-import jakarta.persistence.Table;
-
-@Entity
-@Table(name = "ad_finance", indexes = {
-    @Index(columnList = "clientPort"),
-    @Index(columnList = "vendorPort"),
-    @Index(columnList = "time"),
-})
 public class Finance {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
 
     private Integer clientPort;
 
@@ -49,14 +32,6 @@ public class Finance {
         this.outcomeUpstream = 0L;
         this.outcomeRebate = 0L;
         this.outcomeDownstream = 0L;
-    }
-
-    public Integer getId() {
-        return this.id;
-    }
-
-    public void setId(Integer id) {
-        this.id = id;
     }
 
     public Integer getClientPort() {
