@@ -2,8 +2,19 @@ package cc.tonyhook.carambola.backend.controller.managed.ad;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.connection.lettuce.LettucePoolingClientConfiguration;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.GenericToStringSerializer;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -25,6 +36,7 @@ import cc.tonyhook.carambola.backend.service.ad.ClientMediaService;
 import cc.tonyhook.carambola.backend.service.ad.ClientPortService;
 import cc.tonyhook.carambola.backend.service.ad.ClientService;
 import cc.tonyhook.carambola.backend.service.shared.Query;
+import io.lettuce.core.api.StatefulConnection;
 import jakarta.transaction.Transactional;
 
 @RestController
@@ -38,6 +50,49 @@ public class ClientPortController {
         this.clientService = clientService;
         this.clientMediaService = clientMediaService;
         this.clientPortService = clientPortService;
+    }
+
+    @Value("${app.performance-repository}")
+    private String performanceCacheRepository;
+
+    private RedisConnectionFactory redisConnectionFactory = null;
+
+    public RedisConnectionFactory redisConnectionFactory() {
+        if (redisConnectionFactory != null) {
+            return redisConnectionFactory;
+        }
+
+        RedisStandaloneConfiguration redisStandaloneConfiguration = new RedisStandaloneConfiguration(performanceCacheRepository);
+
+        GenericObjectPoolConfig<StatefulConnection<?, ?>> poolConfig = new GenericObjectPoolConfig<>();
+        poolConfig.setMaxTotal(20);
+        poolConfig.setMaxIdle(10);
+        poolConfig.setMinIdle(5);
+
+        LettucePoolingClientConfiguration clientConfig = LettucePoolingClientConfiguration.builder()
+            .poolConfig(poolConfig)
+            .commandTimeout(Duration.ofSeconds(60))
+            .build();
+
+        LettuceConnectionFactory factory = new LettuceConnectionFactory(redisStandaloneConfiguration, clientConfig);
+        factory.afterPropertiesSet();
+        this.redisConnectionFactory = factory;
+
+        return redisConnectionFactory;
+    }
+
+    public RedisTemplate<String, String> redisTemplate() {
+        RedisTemplate<String, String> template = new RedisTemplate<>();
+        template.setConnectionFactory(redisConnectionFactory());
+
+        StringRedisSerializer stringRedisSerializer = new StringRedisSerializer();
+        GenericToStringSerializer<String> genericToStringSerializer = new GenericToStringSerializer<String>(String.class);
+        template.setKeySerializer(stringRedisSerializer);
+        template.setHashKeySerializer(stringRedisSerializer);
+        template.setValueSerializer(genericToStringSerializer);
+        template.afterPropertiesSet();
+
+        return template;
     }
 
     @GetMapping(value = "/api/managed/clientport", produces = "application/json; charset=UTF-8")
@@ -147,6 +202,21 @@ public class ClientPortController {
             return ResponseEntity.ok().build();
         } else {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+    }
+
+    @GetMapping(value = "/api/managed/clientport/{id}/tracker", produces = "application/json; charset=UTF-8")
+    public ResponseEntity<List<String>> getClientPortTrackerList(
+            @PathVariable Integer id,
+            Authentication authentication) {
+        RedisTemplate<String, String> redisTemplate = redisTemplate();
+
+        String value = redisTemplate.opsForValue().get("LS:" + id);
+
+        if (value == null) {
+            return ResponseEntity.ok().body(List.of());
+        } else {
+            return ResponseEntity.ok().body(Arrays.asList(value.split("\\|")));
         }
     }
 
