@@ -36,15 +36,19 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientBundleDayRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientBundleHourRepository;
+import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientBundleMinuteRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientBundleQuarterRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientDayRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientHourRepository;
+import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientMinuteRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientQuarterRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceVendorBundleDayRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceVendorBundleHourRepository;
+import cc.tonyhook.carambola.backend.dao.ad.PerformanceVendorBundleMinuteRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceVendorBundleQuarterRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceVendorDayRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceVendorHourRepository;
+import cc.tonyhook.carambola.backend.dao.ad.PerformanceVendorMinuteRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceVendorQuarterRepository;
 import cc.tonyhook.carambola.backend.entity.ad.Connection;
 import cc.tonyhook.carambola.backend.entity.ad.Finance;
@@ -53,15 +57,19 @@ import cc.tonyhook.carambola.backend.entity.ad.Performance;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceBundle;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceClientBundleDay;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceClientBundleHour;
+import cc.tonyhook.carambola.backend.entity.ad.PerformanceClientBundleMinute;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceClientBundleQuarter;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceClientDay;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceClientHour;
+import cc.tonyhook.carambola.backend.entity.ad.PerformanceClientMinute;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceClientQuarter;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceVendorBundleDay;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceVendorBundleHour;
+import cc.tonyhook.carambola.backend.entity.ad.PerformanceVendorBundleMinute;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceVendorBundleQuarter;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceVendorDay;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceVendorHour;
+import cc.tonyhook.carambola.backend.entity.ad.PerformanceVendorMinute;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceVendorQuarter;
 import cc.tonyhook.carambola.backend.entity.ad.Server;
 import cc.tonyhook.carambola.backend.service.ad.ConnectionService;
@@ -76,15 +84,19 @@ import jakarta.transaction.Transactional;
 @Configuration
 public class PerformanceCollectingService {
 
+    private final PerformanceClientMinuteRepository performanceClientMinuteRepository;
     private final PerformanceClientQuarterRepository performanceClientQuarterRepository;
     private final PerformanceClientHourRepository performanceClientHourRepository;
     private final PerformanceClientDayRepository performanceClientDayRepository;
+    private final PerformanceVendorMinuteRepository performanceVendorMinuteRepository;
     private final PerformanceVendorQuarterRepository performanceVendorQuarterRepository;
     private final PerformanceVendorHourRepository performanceVendorHourRepository;
     private final PerformanceVendorDayRepository performanceVendorDayRepository;
+    private final PerformanceClientBundleMinuteRepository performanceClientBundleMinuteRepository;
     private final PerformanceClientBundleQuarterRepository performanceClientBundleQuarterRepository;
     private final PerformanceClientBundleHourRepository performanceClientBundleHourRepository;
     private final PerformanceClientBundleDayRepository performanceClientBundleDayRepository;
+    private final PerformanceVendorBundleMinuteRepository performanceVendorBundleMinuteRepository;
     private final PerformanceVendorBundleQuarterRepository performanceVendorBundleQuarterRepository;
     private final PerformanceVendorBundleHourRepository performanceVendorBundleHourRepository;
     private final PerformanceVendorBundleDayRepository performanceVendorBundleDayRepository;
@@ -97,21 +109,25 @@ public class PerformanceCollectingService {
     @PersistenceContext
     private EntityManager entityManager;
 
-    @Value("${app.performance-interval:5}")
+    @Value("${app.performance-interval:3}")
     private Integer performanceInterval;
 
     private Map<String, RedisConnectionFactory> redisConnectionFactoryMap = new ConcurrentHashMap<String, RedisConnectionFactory>();
 
     public PerformanceCollectingService(
+            PerformanceClientMinuteRepository performanceClientMinuteRepository,
             PerformanceClientQuarterRepository performanceClientQuarterRepository,
             PerformanceClientHourRepository performanceClientHourRepository,
             PerformanceClientDayRepository performanceClientDayRepository,
+            PerformanceVendorMinuteRepository performanceVendorMinuteRepository,
             PerformanceVendorQuarterRepository performanceVendorQuarterRepository,
             PerformanceVendorHourRepository performanceVendorHourRepository,
             PerformanceVendorDayRepository performanceVendorDayRepository,
+            PerformanceClientBundleMinuteRepository performanceClientBundleMinuteRepository,
             PerformanceClientBundleQuarterRepository performanceClientBundleQuarterRepository,
             PerformanceClientBundleHourRepository performanceClientBundleHourRepository,
             PerformanceClientBundleDayRepository performanceClientBundleDayRepository,
+            PerformanceVendorBundleMinuteRepository performanceVendorBundleMinuteRepository,
             PerformanceVendorBundleQuarterRepository performanceVendorBundleQuarterRepository,
             PerformanceVendorBundleHourRepository performanceVendorBundleHourRepository,
             PerformanceVendorBundleDayRepository performanceVendorBundleDayRepository,
@@ -120,15 +136,19 @@ public class PerformanceCollectingService {
             ServerService serverService,
             TransactionTemplate transactionTemplate
     ) {
+        this.performanceClientMinuteRepository = performanceClientMinuteRepository;
         this.performanceClientQuarterRepository = performanceClientQuarterRepository;
         this.performanceClientHourRepository = performanceClientHourRepository;
         this.performanceClientDayRepository = performanceClientDayRepository;
+        this.performanceVendorMinuteRepository = performanceVendorMinuteRepository;
         this.performanceVendorQuarterRepository = performanceVendorQuarterRepository;
         this.performanceVendorHourRepository = performanceVendorHourRepository;
         this.performanceVendorDayRepository = performanceVendorDayRepository;
+        this.performanceClientBundleMinuteRepository = performanceClientBundleMinuteRepository;
         this.performanceClientBundleQuarterRepository = performanceClientBundleQuarterRepository;
         this.performanceClientBundleHourRepository = performanceClientBundleHourRepository;
         this.performanceClientBundleDayRepository = performanceClientBundleDayRepository;
+        this.performanceVendorBundleMinuteRepository = performanceVendorBundleMinuteRepository;
         this.performanceVendorBundleQuarterRepository = performanceVendorBundleQuarterRepository;
         this.performanceVendorBundleHourRepository = performanceVendorBundleHourRepository;
         this.performanceVendorBundleDayRepository = performanceVendorBundleDayRepository;
@@ -234,7 +254,7 @@ public class PerformanceCollectingService {
     // Note:
     // collecting interval should equal or larger than performance interval
     // postpone should less than collecting interval
-    @Scheduled(cron = "30 0/15 * * * ?")
+    @Scheduled(cron = "30 0/3 * * * ?")
     public void collectPerformance() {
         List<Connection> connectionList = connectionService.getConnectionList();
         Map<Integer, Connection> connectionMap = connectionList.stream().collect(Collectors.toMap(Connection::getId, Function.identity()));
@@ -704,6 +724,8 @@ public class PerformanceCollectingService {
 
         ZonedDateTime startTime = start.toInstant().atZone(ZoneId.of(timezone));
         ZonedDateTime endTime = end.toInstant().atZone(ZoneId.of(timezone));
+        ZonedDateTime startMinute = startTime.withMinute(startTime.getMinute() / 3 * 3).withSecond(0).withNano(0);
+        ZonedDateTime endMinute = endTime.withMinute(endTime.getMinute() / 3 * 3).withSecond(0).withNano(0);
         ZonedDateTime startQuarter = startTime.withMinute(startTime.getMinute() / 15 * 15).withSecond(0).withNano(0);
         ZonedDateTime endQuarter = endTime.withMinute(endTime.getMinute() / 15 * 15).withSecond(0).withNano(0);
         ZonedDateTime startHour = startTime.withMinute(0).withSecond(0).withNano(0);
@@ -711,30 +733,46 @@ public class PerformanceCollectingService {
         ZonedDateTime startDay = startTime.withHour(0).withMinute(0).withSecond(0).withNano(0);
         ZonedDateTime endDay = endTime.withHour(0).withMinute(0).withSecond(0).withNano(0);
 
+        Map<String, PerformanceClientMinute> performanceClientMinuteMap = new HashMap<String, PerformanceClientMinute>();
         Map<String, PerformanceClientQuarter> performanceClientQuarterMap = new HashMap<String, PerformanceClientQuarter>();
         Map<String, PerformanceClientHour> performanceClientHourMap = new HashMap<String, PerformanceClientHour>();
         Map<String, PerformanceClientDay> performanceClientDayMap = new HashMap<String, PerformanceClientDay>();
+        Map<String, PerformanceVendorMinute> performanceVendorMinuteMap = new HashMap<String, PerformanceVendorMinute>();
         Map<String, PerformanceVendorQuarter> performanceVendorQuarterMap = new HashMap<String, PerformanceVendorQuarter>();
         Map<String, PerformanceVendorHour> performanceVendorHourMap = new HashMap<String, PerformanceVendorHour>();
         Map<String, PerformanceVendorDay> performanceVendorDayMap = new HashMap<String, PerformanceVendorDay>();
-        HashSet<String> existingPerformanceClientQuarterKeys = new HashSet<String>();
-        HashSet<String> existingPerformanceVendorQuarterKeys = new HashSet<String>();
+        HashSet<String> existingPerformanceClientMinuteKeys = new HashSet<String>();
+        HashSet<String> existingPerformanceVendorMinuteKeys = new HashSet<String>();
 
         if (incremental) {
+            List<PerformanceClientMinute> performanceClientMinuteList = performanceClientMinuteRepository.findByTimeBetween(Timestamp.from(startMinute.toInstant()), Timestamp.from(endMinute.toInstant()));
             List<PerformanceClientQuarter> performanceClientQuarterList = performanceClientQuarterRepository.findByTimeBetween(Timestamp.from(startQuarter.toInstant()), Timestamp.from(endQuarter.toInstant()));
             List<PerformanceClientHour> performanceClientHourList = performanceClientHourRepository.findByTimeBetween(Timestamp.from(startHour.toInstant()), Timestamp.from(endHour.toInstant()));
             List<PerformanceClientDay> performanceClientDayList = performanceClientDayRepository.findByTimeBetween(Timestamp.from(startDay.toInstant()), Timestamp.from(endDay.toInstant()));
+            List<PerformanceVendorMinute> performanceVendorMinuteList = performanceVendorMinuteRepository.findByTimeBetween(Timestamp.from(startMinute.toInstant()), Timestamp.from(endMinute.toInstant()));
             List<PerformanceVendorQuarter> performanceVendorQuarterList = performanceVendorQuarterRepository.findByTimeBetween(Timestamp.from(startQuarter.toInstant()), Timestamp.from(endQuarter.toInstant()));
             List<PerformanceVendorHour> performanceVendorHourList = performanceVendorHourRepository.findByTimeBetween(Timestamp.from(startHour.toInstant()), Timestamp.from(endHour.toInstant()));
             List<PerformanceVendorDay> performanceVendorDayList = performanceVendorDayRepository.findByTimeBetween(Timestamp.from(startDay.toInstant()), Timestamp.from(endDay.toInstant()));
 
+            for (PerformanceClientMinute performanceClientMinute : performanceClientMinuteList) {
+                entityManager.detach(performanceClientMinute);
+                performanceClientMinute.setId(null);
+
+                if (performanceClientMinute.getVendorPort() != 0) {
+                    String key = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(performanceClientMinute.getTime().toInstant().atZone(ZoneId.of(timezone))) + "|" + performanceClientMinute.getClientPort() + "|" + performanceClientMinute.getVendorPort();
+                    existingPerformanceClientMinuteKeys.add(key);
+                    performanceClientMinuteMap.put(key, performanceClientMinute);
+                } else {
+                    String key = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(performanceClientMinute.getTime().toInstant().atZone(ZoneId.of(timezone))) + "|" + performanceClientMinute.getClientPort();
+                    performanceClientMinuteMap.put(key, performanceClientMinute);
+                }
+            }
             for (PerformanceClientQuarter performanceClientQuarter : performanceClientQuarterList) {
                 entityManager.detach(performanceClientQuarter);
                 performanceClientQuarter.setId(null);
 
                 if (performanceClientQuarter.getVendorPort() != 0) {
                     String key = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(performanceClientQuarter.getTime().toInstant().atZone(ZoneId.of(timezone))) + "|" + performanceClientQuarter.getClientPort() + "|" + performanceClientQuarter.getVendorPort();
-                    existingPerformanceClientQuarterKeys.add(key);
                     performanceClientQuarterMap.put(key, performanceClientQuarter);
                 } else {
                     String key = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(performanceClientQuarter.getTime().toInstant().atZone(ZoneId.of(timezone))) + "|" + performanceClientQuarter.getClientPort();
@@ -765,13 +803,25 @@ public class PerformanceCollectingService {
                     performanceClientDayMap.put(key, performanceClientDay);
                 }
             }
+            for (PerformanceVendorMinute performanceVendorMinute : performanceVendorMinuteList) {
+                entityManager.detach(performanceVendorMinute);
+                performanceVendorMinute.setId(null);
+
+                if (performanceVendorMinute.getClientPort() != 0) {
+                    String key = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(performanceVendorMinute.getTime().toInstant().atZone(ZoneId.of(timezone))) + "|" + performanceVendorMinute.getClientPort() + "|" + performanceVendorMinute.getVendorPort();
+                    existingPerformanceVendorMinuteKeys.add(key);
+                    performanceVendorMinuteMap.put(key, performanceVendorMinute);
+                } else {
+                    String key = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(performanceVendorMinute.getTime().toInstant().atZone(ZoneId.of(timezone))) + "|" + performanceVendorMinute.getVendorPort();
+                    performanceVendorMinuteMap.put(key, performanceVendorMinute);
+                }
+            }
             for (PerformanceVendorQuarter performanceVendorQuarter : performanceVendorQuarterList) {
                 entityManager.detach(performanceVendorQuarter);
                 performanceVendorQuarter.setId(null);
 
                 if (performanceVendorQuarter.getClientPort() != 0) {
                     String key = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(performanceVendorQuarter.getTime().toInstant().atZone(ZoneId.of(timezone))) + "|" + performanceVendorQuarter.getClientPort() + "|" + performanceVendorQuarter.getVendorPort();
-                    existingPerformanceVendorQuarterKeys.add(key);
                     performanceVendorQuarterMap.put(key, performanceVendorQuarter);
                 } else {
                     String key = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(performanceVendorQuarter.getTime().toInstant().atZone(ZoneId.of(timezone))) + "|" + performanceVendorQuarter.getVendorPort();
@@ -804,29 +854,57 @@ public class PerformanceCollectingService {
             }
         }
 
+        performanceClientMinuteRepository.deleteByTimeBetween(Timestamp.from(startMinute.toInstant()), Timestamp.from(endMinute.toInstant()));
         performanceClientQuarterRepository.deleteByTimeBetween(Timestamp.from(startQuarter.toInstant()), Timestamp.from(endQuarter.toInstant()));
         performanceClientHourRepository.deleteByTimeBetween(Timestamp.from(startHour.toInstant()), Timestamp.from(endHour.toInstant()));
         performanceClientDayRepository.deleteByTimeBetween(Timestamp.from(startDay.toInstant()), Timestamp.from(endDay.toInstant()));
+        performanceVendorMinuteRepository.deleteByTimeBetween(Timestamp.from(startMinute.toInstant()), Timestamp.from(endMinute.toInstant()));
         performanceVendorQuarterRepository.deleteByTimeBetween(Timestamp.from(startQuarter.toInstant()), Timestamp.from(endQuarter.toInstant()));
         performanceVendorHourRepository.deleteByTimeBetween(Timestamp.from(startHour.toInstant()), Timestamp.from(endHour.toInstant()));
         performanceVendorDayRepository.deleteByTimeBetween(Timestamp.from(startDay.toInstant()), Timestamp.from(endDay.toInstant()));
 
         for (Performance performance : performanceList) {
             ZonedDateTime time = performance.getTime().toInstant().atZone(ZoneId.of(timezone));
+            ZonedDateTime timeMinute = time.withMinute(time.getMinute() / 3 * 3).withSecond(0).withNano(0);
             ZonedDateTime timeQuarter = time.withMinute(time.getMinute() / 15 * 15).withSecond(0).withNano(0);
             ZonedDateTime timeHour = time.withMinute(0).withSecond(0).withNano(0);
             ZonedDateTime timeDay = time.withHour(0).withMinute(0).withSecond(0).withNano(0);
-            String existingQuarterKey = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + performance.getClientPort() + "|" + performance.getVendorPort();
+            String existingMinuteKey = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + performance.getClientPort() + "|" + performance.getVendorPort();
             char eventType = performance.getEvent().charAt(0);
 
             if (incremental && (
-                    eventType == 'Z' && existingPerformanceClientQuarterKeys.contains(existingQuarterKey) ||
-                    "ABCDEFGHIJ".indexOf(eventType) >= 0 && existingPerformanceVendorQuarterKeys.contains(existingQuarterKey) ||
-                    "abz".indexOf(eventType) >= 0 && (existingPerformanceClientQuarterKeys.contains(existingQuarterKey) || existingPerformanceVendorQuarterKeys.contains(existingQuarterKey)))) {
+                    eventType == 'Z' && existingPerformanceClientMinuteKeys.contains(existingMinuteKey) ||
+                    "ABCDEFGHIJ".indexOf(eventType) >= 0 && existingPerformanceVendorMinuteKeys.contains(existingMinuteKey) ||
+                    "abz".indexOf(eventType) >= 0 && (existingPerformanceClientMinuteKeys.contains(existingMinuteKey) || existingPerformanceVendorMinuteKeys.contains(existingMinuteKey)))) {
                 continue;
             }
 
             if ("Z".indexOf(performance.getEvent().charAt(0)) >= 0) {
+                String keyClientMinute = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + performance.getClientPort() + "|" + performance.getVendorPort();
+                if (!performanceClientMinuteMap.containsKey(keyClientMinute)) {
+                    PerformanceClientMinute performanceClientMinute = new PerformanceClientMinute(performance.getClientPort(), performance.getVendorPort(), Timestamp.from(timeMinute.toInstant()));
+                    performanceClientMinuteMap.put(keyClientMinute, performanceClientMinute);
+                }
+                PerformanceClientMinute performanceClientMinute = performanceClientMinuteMap.get(keyClientMinute);
+                switch (performance.getEvent().substring(1, 2)) {
+                    case "A": performanceClientMinute.setEventA(performanceClientMinute.getEventA() + performance.getAmount());break;
+                    case "B": performanceClientMinute.setEventB(performanceClientMinute.getEventB() + performance.getAmount());break;
+                    case "C": performanceClientMinute.setEventC(performanceClientMinute.getEventC() + performance.getAmount());break;
+                    case "D": performanceClientMinute.setEventD(performanceClientMinute.getEventD() + performance.getAmount());break;
+                    case "E": performanceClientMinute.setEventE(performanceClientMinute.getEventE() + performance.getAmount());break;
+                    case "F": performanceClientMinute.setEventF(performanceClientMinute.getEventF() + performance.getAmount());break;
+                    case "G": performanceClientMinute.setEventG(performanceClientMinute.getEventG() + performance.getAmount());break;
+                    case "H": performanceClientMinute.setEventH(performanceClientMinute.getEventH() + performance.getAmount());break;
+                    case "I": performanceClientMinute.setEventI(performanceClientMinute.getEventI() + performance.getAmount());break;
+                    case "J": performanceClientMinute.setEventJ(performanceClientMinute.getEventJ() + performance.getAmount());break;
+                    case "K": performanceClientMinute.setEventK(performanceClientMinute.getEventK() + performance.getAmount());break;
+                    case "L": performanceClientMinute.setEventL(performanceClientMinute.getEventL() + performance.getAmount());break;
+                    case "M": performanceClientMinute.setEventM(performanceClientMinute.getEventM() + performance.getAmount());break;
+                    case "N": performanceClientMinute.setEventN(performanceClientMinute.getEventN() + performance.getAmount());break;
+                    case "O": performanceClientMinute.setEventO(performanceClientMinute.getEventO() + performance.getAmount());break;
+                    default: break;
+                }
+
                 String keyClientQuarter = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + performance.getClientPort() + "|" + performance.getVendorPort();
                 if (!performanceClientQuarterMap.containsKey(keyClientQuarter)) {
                     PerformanceClientQuarter performanceClientQuarter = new PerformanceClientQuarter(performance.getClientPort(), performance.getVendorPort(), Timestamp.from(timeQuarter.toInstant()));
@@ -899,6 +977,31 @@ public class PerformanceCollectingService {
                     case "M": performanceClientDay.setEventM(performanceClientDay.getEventM() + performance.getAmount());break;
                     case "N": performanceClientDay.setEventN(performanceClientDay.getEventN() + performance.getAmount());break;
                     case "O": performanceClientDay.setEventO(performanceClientDay.getEventO() + performance.getAmount());break;
+                    default: break;
+                }
+
+                String keyClientMinute0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + performance.getClientPort();
+                if (!performanceClientMinuteMap.containsKey(keyClientMinute0)) {
+                    PerformanceClientMinute performanceClientMinute0 = new PerformanceClientMinute(performance.getClientPort(), 0, Timestamp.from(timeMinute.toInstant()));
+                    performanceClientMinuteMap.put(keyClientMinute0, performanceClientMinute0);
+                }
+                PerformanceClientMinute performanceClientMinute0 = performanceClientMinuteMap.get(keyClientMinute0);
+                switch (performance.getEvent().substring(1, 2)) {
+                    case "A": performanceClientMinute0.setEventA(performanceClientMinute0.getEventA() + performance.getAmount());break;
+                    case "B": performanceClientMinute0.setEventB(performanceClientMinute0.getEventB() + performance.getAmount());break;
+                    case "C": performanceClientMinute0.setEventC(performanceClientMinute0.getEventC() + performance.getAmount());break;
+                    case "D": performanceClientMinute0.setEventD(performanceClientMinute0.getEventD() + performance.getAmount());break;
+                    case "E": performanceClientMinute0.setEventE(performanceClientMinute0.getEventE() + performance.getAmount());break;
+                    case "F": performanceClientMinute0.setEventF(performanceClientMinute0.getEventF() + performance.getAmount());break;
+                    case "G": performanceClientMinute0.setEventG(performanceClientMinute0.getEventG() + performance.getAmount());break;
+                    case "H": performanceClientMinute0.setEventH(performanceClientMinute0.getEventH() + performance.getAmount());break;
+                    case "I": performanceClientMinute0.setEventI(performanceClientMinute0.getEventI() + performance.getAmount());break;
+                    case "J": performanceClientMinute0.setEventJ(performanceClientMinute0.getEventJ() + performance.getAmount());break;
+                    case "K": performanceClientMinute0.setEventK(performanceClientMinute0.getEventK() + performance.getAmount());break;
+                    case "L": performanceClientMinute0.setEventL(performanceClientMinute0.getEventL() + performance.getAmount());break;
+                    case "M": performanceClientMinute0.setEventM(performanceClientMinute0.getEventM() + performance.getAmount());break;
+                    case "N": performanceClientMinute0.setEventN(performanceClientMinute0.getEventN() + performance.getAmount());break;
+                    case "O": performanceClientMinute0.setEventO(performanceClientMinute0.getEventO() + performance.getAmount());break;
                     default: break;
                 }
 
@@ -978,6 +1081,26 @@ public class PerformanceCollectingService {
                 }
             }
             if ("ABCDEFGHIJ".indexOf(performance.getEvent().charAt(0)) >= 0) {
+                String keyVendorMinute = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + performance.getClientPort() + "|" + performance.getVendorPort();
+                if (!performanceVendorMinuteMap.containsKey(keyVendorMinute)) {
+                    PerformanceVendorMinute performanceVendorMinute = new PerformanceVendorMinute(performance.getClientPort(), performance.getVendorPort(), Timestamp.from(timeMinute.toInstant()));
+                    performanceVendorMinuteMap.put(keyVendorMinute, performanceVendorMinute);
+                }
+                PerformanceVendorMinute performanceVendorMinute = performanceVendorMinuteMap.get(keyVendorMinute);
+                switch (performance.getEvent().substring(0, 1)) {
+                    case "A": performanceVendorMinute.setEventA(performanceVendorMinute.getEventA() + performance.getAmount());break;
+                    case "B": performanceVendorMinute.setEventB(performanceVendorMinute.getEventB() + performance.getAmount());break;
+                    case "C": performanceVendorMinute.setEventC(performanceVendorMinute.getEventC() + performance.getAmount());break;
+                    case "D": performanceVendorMinute.setEventD(performanceVendorMinute.getEventD() + performance.getAmount());break;
+                    case "E": performanceVendorMinute.setEventE(performanceVendorMinute.getEventE() + performance.getAmount());break;
+                    case "F": performanceVendorMinute.setEventF(performanceVendorMinute.getEventF() + performance.getAmount());break;
+                    case "G": performanceVendorMinute.setEventG(performanceVendorMinute.getEventG() + performance.getAmount());break;
+                    case "H": performanceVendorMinute.setEventH(performanceVendorMinute.getEventH() + performance.getAmount());break;
+                    case "I": performanceVendorMinute.setEventI(performanceVendorMinute.getEventI() + performance.getAmount());break;
+                    case "J": performanceVendorMinute.setEventJ(performanceVendorMinute.getEventJ() + performance.getAmount());break;
+                    default: break;
+                }
+
                 String keyVendorQuarter = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + performance.getClientPort() + "|" + performance.getVendorPort();
                 if (!performanceVendorQuarterMap.containsKey(keyVendorQuarter)) {
                     PerformanceVendorQuarter performanceVendorQuarter = new PerformanceVendorQuarter(performance.getClientPort(), performance.getVendorPort(), Timestamp.from(timeQuarter.toInstant()));
@@ -1035,6 +1158,26 @@ public class PerformanceCollectingService {
                     case "H": performanceVendorDay.setEventH(performanceVendorDay.getEventH() + performance.getAmount());break;
                     case "I": performanceVendorDay.setEventI(performanceVendorDay.getEventI() + performance.getAmount());break;
                     case "J": performanceVendorDay.setEventJ(performanceVendorDay.getEventJ() + performance.getAmount());break;
+                    default: break;
+                }
+
+                String keyVendorMinute0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + performance.getVendorPort();
+                if (!performanceVendorMinuteMap.containsKey(keyVendorMinute0)) {
+                    PerformanceVendorMinute performanceVendorMinute0 = new PerformanceVendorMinute(0, performance.getVendorPort(), Timestamp.from(timeMinute.toInstant()));
+                    performanceVendorMinuteMap.put(keyVendorMinute0, performanceVendorMinute0);
+                }
+                PerformanceVendorMinute performanceVendorMinute0 = performanceVendorMinuteMap.get(keyVendorMinute0);
+                switch (performance.getEvent().substring(0, 1)) {
+                    case "A": performanceVendorMinute0.setEventA(performanceVendorMinute0.getEventA() + performance.getAmount());break;
+                    case "B": performanceVendorMinute0.setEventB(performanceVendorMinute0.getEventB() + performance.getAmount());break;
+                    case "C": performanceVendorMinute0.setEventC(performanceVendorMinute0.getEventC() + performance.getAmount());break;
+                    case "D": performanceVendorMinute0.setEventD(performanceVendorMinute0.getEventD() + performance.getAmount());break;
+                    case "E": performanceVendorMinute0.setEventE(performanceVendorMinute0.getEventE() + performance.getAmount());break;
+                    case "F": performanceVendorMinute0.setEventF(performanceVendorMinute0.getEventF() + performance.getAmount());break;
+                    case "G": performanceVendorMinute0.setEventG(performanceVendorMinute0.getEventG() + performance.getAmount());break;
+                    case "H": performanceVendorMinute0.setEventH(performanceVendorMinute0.getEventH() + performance.getAmount());break;
+                    case "I": performanceVendorMinute0.setEventI(performanceVendorMinute0.getEventI() + performance.getAmount());break;
+                    case "J": performanceVendorMinute0.setEventJ(performanceVendorMinute0.getEventJ() + performance.getAmount());break;
                     default: break;
                 }
 
@@ -1099,6 +1242,18 @@ public class PerformanceCollectingService {
                 }
             }
             if ("ab".indexOf(performance.getEvent().charAt(0)) >= 0) {
+                String keyClientMinute = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + performance.getClientPort() + "|" + performance.getVendorPort();
+                if (!performanceClientMinuteMap.containsKey(keyClientMinute)) {
+                    PerformanceClientMinute performanceClientMinute = new PerformanceClientMinute(performance.getClientPort(), performance.getVendorPort(), Timestamp.from(timeMinute.toInstant()));
+                    performanceClientMinuteMap.put(keyClientMinute, performanceClientMinute);
+                }
+                PerformanceClientMinute performanceClientMinute = performanceClientMinuteMap.get(keyClientMinute);
+                switch (performance.getEvent().substring(0, 1)) {
+                    case "a": performanceClientMinute.setImpression(performanceClientMinute.getImpression() + performance.getAmount());break;
+                    case "b": performanceClientMinute.setClick(performanceClientMinute.getClick() + performance.getAmount());break;
+                    default: break;
+                }
+
                 String keyClientQuarter = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + performance.getClientPort() + "|" + performance.getVendorPort();
                 if (!performanceClientQuarterMap.containsKey(keyClientQuarter)) {
                     PerformanceClientQuarter performanceClientQuarter = new PerformanceClientQuarter(performance.getClientPort(), performance.getVendorPort(), Timestamp.from(timeQuarter.toInstant()));
@@ -1132,6 +1287,18 @@ public class PerformanceCollectingService {
                 switch (performance.getEvent().substring(0, 1)) {
                     case "a": performanceClientDay.setImpression(performanceClientDay.getImpression() + performance.getAmount());break;
                     case "b": performanceClientDay.setClick(performanceClientDay.getClick() + performance.getAmount());break;
+                    default: break;
+                }
+
+                String keyVendorMinute = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + performance.getClientPort() + "|" + performance.getVendorPort();
+                if (!performanceVendorMinuteMap.containsKey(keyVendorMinute)) {
+                    PerformanceVendorMinute performanceVendorMinute = new PerformanceVendorMinute(performance.getClientPort(), performance.getVendorPort(), Timestamp.from(timeMinute.toInstant()));
+                    performanceVendorMinuteMap.put(keyVendorMinute, performanceVendorMinute);
+                }
+                PerformanceVendorMinute performanceVendorMinute = performanceVendorMinuteMap.get(keyVendorMinute);
+                switch (performance.getEvent().substring(0, 1)) {
+                    case "a": performanceVendorMinute.setImpression(performanceVendorMinute.getImpression() + performance.getAmount());break;
+                    case "b": performanceVendorMinute.setClick(performanceVendorMinute.getClick() + performance.getAmount());break;
                     default: break;
                 }
 
@@ -1171,6 +1338,18 @@ public class PerformanceCollectingService {
                     default: break;
                 }
 
+                String keyClientMinute0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + performance.getClientPort();
+                if (!performanceClientMinuteMap.containsKey(keyClientMinute0)) {
+                    PerformanceClientMinute performanceClientMinute0 = new PerformanceClientMinute(performance.getClientPort(), 0, Timestamp.from(timeMinute.toInstant()));
+                    performanceClientMinuteMap.put(keyClientMinute0, performanceClientMinute0);
+                }
+                PerformanceClientMinute performanceClientMinute0 = performanceClientMinuteMap.get(keyClientMinute0);
+                switch (performance.getEvent().substring(0, 1)) {
+                    case "a": performanceClientMinute0.setImpression(performanceClientMinute0.getImpression() + performance.getAmount());break;
+                    case "b": performanceClientMinute0.setClick(performanceClientMinute0.getClick() + performance.getAmount());break;
+                    default: break;
+                }
+
                 String keyClientQuarter0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + performance.getClientPort();
                 if (!performanceClientQuarterMap.containsKey(keyClientQuarter0)) {
                     PerformanceClientQuarter performanceClientQuarter0 = new PerformanceClientQuarter(performance.getClientPort(), 0, Timestamp.from(timeQuarter.toInstant()));
@@ -1204,6 +1383,18 @@ public class PerformanceCollectingService {
                 switch (performance.getEvent().substring(0, 1)) {
                     case "a": performanceClientDay0.setImpression(performanceClientDay0.getImpression() + performance.getAmount());break;
                     case "b": performanceClientDay0.setClick(performanceClientDay0.getClick() + performance.getAmount());break;
+                    default: break;
+                }
+
+                String keyVendorMinute0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + performance.getVendorPort();
+                if (!performanceVendorMinuteMap.containsKey(keyVendorMinute0)) {
+                    PerformanceVendorMinute performanceVendorMinute0 = new PerformanceVendorMinute(0, performance.getVendorPort(), Timestamp.from(timeMinute.toInstant()));
+                    performanceVendorMinuteMap.put(keyVendorMinute0, performanceVendorMinute0);
+                }
+                PerformanceVendorMinute performanceVendorMinute0 = performanceVendorMinuteMap.get(keyVendorMinute0);
+                switch (performance.getEvent().substring(0, 1)) {
+                    case "a": performanceVendorMinute0.setImpression(performanceVendorMinute0.getImpression() + performance.getAmount());break;
+                    case "b": performanceVendorMinute0.setClick(performanceVendorMinute0.getClick() + performance.getAmount());break;
                     default: break;
                 }
 
@@ -1246,14 +1437,26 @@ public class PerformanceCollectingService {
         }
         for (Finance finance : financeList) {
             ZonedDateTime time = finance.getTime().toInstant().atZone(ZoneId.of(timezone));
+            ZonedDateTime timeMinute = time.withMinute(time.getMinute() / 3 * 3).withSecond(0).withNano(0);
             ZonedDateTime timeQuarter = time.withMinute(time.getMinute() / 15 * 15).withSecond(0).withNano(0);
             ZonedDateTime timeHour = time.withMinute(0).withSecond(0).withNano(0);
             ZonedDateTime timeDay = time.withHour(0).withMinute(0).withSecond(0).withNano(0);
-            String existingQuarterKey = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + finance.getClientPort() + "|" + finance.getVendorPort();
+            String existingMinuteKey = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + finance.getClientPort() + "|" + finance.getVendorPort();
 
-            if (incremental && (existingPerformanceClientQuarterKeys.contains(existingQuarterKey) || existingPerformanceVendorQuarterKeys.contains(existingQuarterKey))) {
+            if (incremental && (existingPerformanceClientMinuteKeys.contains(existingMinuteKey) || existingPerformanceVendorMinuteKeys.contains(existingMinuteKey))) {
                 continue;
             }
+
+            String keyClientMinute = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + finance.getClientPort() + "|" + finance.getVendorPort();
+            if (!performanceClientMinuteMap.containsKey(keyClientMinute)) {
+                PerformanceClientMinute performanceClientMinute = new PerformanceClientMinute(finance.getClientPort(), finance.getVendorPort(), Timestamp.from(timeMinute.toInstant()));
+                performanceClientMinuteMap.put(keyClientMinute, performanceClientMinute);
+            }
+            PerformanceClientMinute performanceClientMinute = performanceClientMinuteMap.get(keyClientMinute);
+            performanceClientMinute.setIncome(performanceClientMinute.getIncome() + finance.getIncome());
+            performanceClientMinute.setOutcomeUpstream(performanceClientMinute.getOutcomeUpstream() + (finance.getOutcomeUpstream() == null ? 0 : finance.getOutcomeUpstream()));
+            performanceClientMinute.setOutcomeRebate(performanceClientMinute.getOutcomeRebate() + (finance.getOutcomeRebate() == null ? 0 : finance.getOutcomeRebate()));
+            performanceClientMinute.setOutcomeDownstream(performanceClientMinute.getOutcomeDownstream() + finance.getOutcomeDownstream());
 
             String keyClientQuarter = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + finance.getClientPort() + "|" + finance.getVendorPort();
             if (!performanceClientQuarterMap.containsKey(keyClientQuarter)) {
@@ -1288,6 +1491,17 @@ public class PerformanceCollectingService {
             performanceClientDay.setOutcomeRebate(performanceClientDay.getOutcomeRebate() + (finance.getOutcomeRebate() == null ? 0 : finance.getOutcomeRebate()));
             performanceClientDay.setOutcomeDownstream(performanceClientDay.getOutcomeDownstream() + finance.getOutcomeDownstream());
 
+            String keyVendorMinute = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + finance.getClientPort() + "|" + finance.getVendorPort();
+            if (!performanceVendorMinuteMap.containsKey(keyVendorMinute)) {
+                PerformanceVendorMinute performanceVendorMinute = new PerformanceVendorMinute(finance.getClientPort(), finance.getVendorPort(), Timestamp.from(timeMinute.toInstant()));
+                performanceVendorMinuteMap.put(keyVendorMinute, performanceVendorMinute);
+            }
+            PerformanceVendorMinute performanceVendorMinute = performanceVendorMinuteMap.get(keyVendorMinute);
+            performanceVendorMinute.setIncome(performanceVendorMinute.getIncome() + finance.getIncome());
+            performanceVendorMinute.setOutcomeUpstream(performanceVendorMinute.getOutcomeUpstream() + (finance.getOutcomeUpstream() == null ? 0 : finance.getOutcomeUpstream()));
+            performanceVendorMinute.setOutcomeRebate(performanceVendorMinute.getOutcomeRebate() + (finance.getOutcomeRebate() == null ? 0 : finance.getOutcomeRebate()));
+            performanceVendorMinute.setOutcomeDownstream(performanceVendorMinute.getOutcomeDownstream() + finance.getOutcomeDownstream());
+
             String keyVendorQuarter = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + finance.getClientPort() + "|" + finance.getVendorPort();
             if (!performanceVendorQuarterMap.containsKey(keyVendorQuarter)) {
                 PerformanceVendorQuarter performanceVendorQuarter = new PerformanceVendorQuarter(finance.getClientPort(), finance.getVendorPort(), Timestamp.from(timeQuarter.toInstant()));
@@ -1321,6 +1535,17 @@ public class PerformanceCollectingService {
             performanceVendorDay.setOutcomeRebate(performanceVendorDay.getOutcomeRebate() + (finance.getOutcomeRebate() == null ? 0 : finance.getOutcomeRebate()));
             performanceVendorDay.setOutcomeDownstream(performanceVendorDay.getOutcomeDownstream() + finance.getOutcomeDownstream());
 
+            String keyClientMinute0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + finance.getClientPort();
+            if (!performanceClientMinuteMap.containsKey(keyClientMinute0)) {
+                PerformanceClientMinute performanceClientMinute0 = new PerformanceClientMinute(finance.getClientPort(), 0, Timestamp.from(timeMinute.toInstant()));
+                performanceClientMinuteMap.put(keyClientMinute0, performanceClientMinute0);
+            }
+            PerformanceClientMinute performanceClientMinute0 = performanceClientMinuteMap.get(keyClientMinute0);
+            performanceClientMinute0.setIncome(performanceClientMinute0.getIncome() + finance.getIncome());
+            performanceClientMinute0.setOutcomeUpstream(performanceClientMinute0.getOutcomeUpstream() + (finance.getOutcomeUpstream() == null ? 0 : finance.getOutcomeUpstream()));
+            performanceClientMinute0.setOutcomeRebate(performanceClientMinute0.getOutcomeRebate() + (finance.getOutcomeRebate() == null ? 0 : finance.getOutcomeRebate()));
+            performanceClientMinute0.setOutcomeDownstream(performanceClientMinute0.getOutcomeDownstream() + finance.getOutcomeDownstream());
+
             String keyClientQuarter0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + finance.getClientPort();
             if (!performanceClientQuarterMap.containsKey(keyClientQuarter0)) {
                 PerformanceClientQuarter performanceClientQuarter0 = new PerformanceClientQuarter(finance.getClientPort(), 0, Timestamp.from(timeQuarter.toInstant()));
@@ -1353,6 +1578,17 @@ public class PerformanceCollectingService {
             performanceClientDay0.setOutcomeUpstream(performanceClientDay0.getOutcomeUpstream() + (finance.getOutcomeUpstream() == null ? 0 : finance.getOutcomeUpstream()));
             performanceClientDay0.setOutcomeRebate(performanceClientDay0.getOutcomeRebate() + (finance.getOutcomeRebate() == null ? 0 : finance.getOutcomeRebate()));
             performanceClientDay0.setOutcomeDownstream(performanceClientDay0.getOutcomeDownstream() + finance.getOutcomeDownstream());
+
+            String keyVendorMinute0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + finance.getVendorPort();
+            if (!performanceVendorMinuteMap.containsKey(keyVendorMinute0)) {
+                PerformanceVendorMinute performanceVendorMinute0 = new PerformanceVendorMinute(0, finance.getVendorPort(), Timestamp.from(timeMinute.toInstant()));
+                performanceVendorMinuteMap.put(keyVendorMinute0, performanceVendorMinute0);
+            }
+            PerformanceVendorMinute performanceVendorMinute0 = performanceVendorMinuteMap.get(keyVendorMinute0);
+            performanceVendorMinute0.setIncome(performanceVendorMinute0.getIncome() + finance.getIncome());
+            performanceVendorMinute0.setOutcomeUpstream(performanceVendorMinute0.getOutcomeUpstream() + (finance.getOutcomeUpstream() == null ? 0 : finance.getOutcomeUpstream()));
+            performanceVendorMinute0.setOutcomeRebate(performanceVendorMinute0.getOutcomeRebate() + (finance.getOutcomeRebate() == null ? 0 : finance.getOutcomeRebate()));
+            performanceVendorMinute0.setOutcomeDownstream(performanceVendorMinute0.getOutcomeDownstream() + finance.getOutcomeDownstream());
 
             String keyVendorQuarter0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + finance.getVendorPort();
             if (!performanceVendorQuarterMap.containsKey(keyVendorQuarter0)) {
@@ -1388,9 +1624,11 @@ public class PerformanceCollectingService {
             performanceVendorDay0.setOutcomeDownstream(performanceVendorDay0.getOutcomeDownstream() + finance.getOutcomeDownstream());
         }
 
+        performanceClientMinuteRepository.saveAll(performanceClientMinuteMap.values());
         performanceClientQuarterRepository.saveAll(performanceClientQuarterMap.values());
         performanceClientHourRepository.saveAll(performanceClientHourMap.values());
         performanceClientDayRepository.saveAll(performanceClientDayMap.values());
+        performanceVendorMinuteRepository.saveAll(performanceVendorMinuteMap.values());
         performanceVendorQuarterRepository.saveAll(performanceVendorQuarterMap.values());
         performanceVendorHourRepository.saveAll(performanceVendorHourMap.values());
         performanceVendorDayRepository.saveAll(performanceVendorDayMap.values());
@@ -1403,6 +1641,8 @@ public class PerformanceCollectingService {
 
         ZonedDateTime startTime = start.toInstant().atZone(ZoneId.of(timezone));
         ZonedDateTime endTime = end.toInstant().atZone(ZoneId.of(timezone));
+        ZonedDateTime startMinute = startTime.withMinute(startTime.getMinute() / 3 * 3).withSecond(0).withNano(0);
+        ZonedDateTime endMinute = endTime.withMinute(endTime.getMinute() / 3 * 3).withSecond(0).withNano(0);
         ZonedDateTime startQuarter = startTime.withMinute(startTime.getMinute() / 15 * 15).withSecond(0).withNano(0);
         ZonedDateTime endQuarter = endTime.withMinute(endTime.getMinute() / 15 * 15).withSecond(0).withNano(0);
         ZonedDateTime startHour = startTime.withMinute(0).withSecond(0).withNano(0);
@@ -1410,30 +1650,46 @@ public class PerformanceCollectingService {
         ZonedDateTime startDay = startTime.withHour(0).withMinute(0).withSecond(0).withNano(0);
         ZonedDateTime endDay = endTime.withHour(0).withMinute(0).withSecond(0).withNano(0);
 
+        Map<String, PerformanceClientBundleMinute> performanceClientBundleMinuteMap = new HashMap<String, PerformanceClientBundleMinute>();
         Map<String, PerformanceClientBundleQuarter> performanceClientBundleQuarterMap = new HashMap<String, PerformanceClientBundleQuarter>();
         Map<String, PerformanceClientBundleHour> performanceClientBundleHourMap = new HashMap<String, PerformanceClientBundleHour>();
         Map<String, PerformanceClientBundleDay> performanceClientBundleDayMap = new HashMap<String, PerformanceClientBundleDay>();
+        Map<String, PerformanceVendorBundleMinute> performanceVendorBundleMinuteMap = new HashMap<String, PerformanceVendorBundleMinute>();
         Map<String, PerformanceVendorBundleQuarter> performanceVendorBundleQuarterMap = new HashMap<String, PerformanceVendorBundleQuarter>();
         Map<String, PerformanceVendorBundleHour> performanceVendorBundleHourMap = new HashMap<String, PerformanceVendorBundleHour>();
         Map<String, PerformanceVendorBundleDay> performanceVendorBundleDayMap = new HashMap<String, PerformanceVendorBundleDay>();
-        HashSet<String> existingPerformanceClientBundleQuarterKeys = new HashSet<String>();
-        HashSet<String> existingPerformanceVendorBundleQuarterKeys = new HashSet<String>();
+        HashSet<String> existingPerformanceClientBundleMinuteKeys = new HashSet<String>();
+        HashSet<String> existingPerformanceVendorBundleMinuteKeys = new HashSet<String>();
 
         if (incremental) {
+            List<PerformanceClientBundleMinute> performanceClientBundleMinuteList = performanceClientBundleMinuteRepository.findByTimeBetween(Timestamp.from(startMinute.toInstant()), Timestamp.from(endMinute.toInstant()));
             List<PerformanceClientBundleQuarter> performanceClientBundleQuarterList = performanceClientBundleQuarterRepository.findByTimeBetween(Timestamp.from(startQuarter.toInstant()), Timestamp.from(endQuarter.toInstant()));
             List<PerformanceClientBundleHour> performanceClientBundleHourList = performanceClientBundleHourRepository.findByTimeBetween(Timestamp.from(startHour.toInstant()), Timestamp.from(endHour.toInstant()));
             List<PerformanceClientBundleDay> performanceClientBundleDayList = performanceClientBundleDayRepository.findByTimeBetween(Timestamp.from(startDay.toInstant()), Timestamp.from(endDay.toInstant()));
+            List<PerformanceVendorBundleMinute> performanceVendorBundleMinuteList = performanceVendorBundleMinuteRepository.findByTimeBetween(Timestamp.from(startMinute.toInstant()), Timestamp.from(endMinute.toInstant()));
             List<PerformanceVendorBundleQuarter> performanceVendorBundleQuarterList = performanceVendorBundleQuarterRepository.findByTimeBetween(Timestamp.from(startQuarter.toInstant()), Timestamp.from(endQuarter.toInstant()));
             List<PerformanceVendorBundleHour> performanceVendorBundleHourList = performanceVendorBundleHourRepository.findByTimeBetween(Timestamp.from(startHour.toInstant()), Timestamp.from(endHour.toInstant()));
             List<PerformanceVendorBundleDay> performanceVendorBundleDayList = performanceVendorBundleDayRepository.findByTimeBetween(Timestamp.from(startDay.toInstant()), Timestamp.from(endDay.toInstant()));
 
+            for (PerformanceClientBundleMinute performanceClientBundleMinute : performanceClientBundleMinuteList) {
+                entityManager.detach(performanceClientBundleMinute);
+                performanceClientBundleMinute.setId(null);
+
+                if (performanceClientBundleMinute.getVendorPort() != 0) {
+                    String key = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(performanceClientBundleMinute.getTime().toInstant().atZone(ZoneId.of(timezone))) + "|" + performanceClientBundleMinute.getClientPort() + "|" + performanceClientBundleMinute.getVendorPort() + "|" + performanceClientBundleMinute.getBundle();
+                    existingPerformanceClientBundleMinuteKeys.add(key);
+                    performanceClientBundleMinuteMap.put(key, performanceClientBundleMinute);
+                } else {
+                    String key = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(performanceClientBundleMinute.getTime().toInstant().atZone(ZoneId.of(timezone))) + "|" + performanceClientBundleMinute.getClientPort() + "|" + performanceClientBundleMinute.getBundle();
+                    performanceClientBundleMinuteMap.put(key, performanceClientBundleMinute);
+                }
+            }
             for (PerformanceClientBundleQuarter performanceClientBundleQuarter : performanceClientBundleQuarterList) {
                 entityManager.detach(performanceClientBundleQuarter);
                 performanceClientBundleQuarter.setId(null);
 
                 if (performanceClientBundleQuarter.getVendorPort() != 0) {
                     String key = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(performanceClientBundleQuarter.getTime().toInstant().atZone(ZoneId.of(timezone))) + "|" + performanceClientBundleQuarter.getClientPort() + "|" + performanceClientBundleQuarter.getVendorPort() + "|" + performanceClientBundleQuarter.getBundle();
-                    existingPerformanceClientBundleQuarterKeys.add(key);
                     performanceClientBundleQuarterMap.put(key, performanceClientBundleQuarter);
                 } else {
                     String key = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(performanceClientBundleQuarter.getTime().toInstant().atZone(ZoneId.of(timezone))) + "|" + performanceClientBundleQuarter.getClientPort() + "|" + performanceClientBundleQuarter.getBundle();
@@ -1464,13 +1720,25 @@ public class PerformanceCollectingService {
                     performanceClientBundleDayMap.put(key, performanceClientBundleDay);
                 }
             }
+            for (PerformanceVendorBundleMinute performanceVendorBundleMinute : performanceVendorBundleMinuteList) {
+                entityManager.detach(performanceVendorBundleMinute);
+                performanceVendorBundleMinute.setId(null);
+
+                if (performanceVendorBundleMinute.getClientPort() != 0) {
+                    String key = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(performanceVendorBundleMinute.getTime().toInstant().atZone(ZoneId.of(timezone))) + "|" + performanceVendorBundleMinute.getClientPort() + "|" + performanceVendorBundleMinute.getVendorPort() + "|" + performanceVendorBundleMinute.getBundle();
+                    existingPerformanceVendorBundleMinuteKeys.add(key);
+                    performanceVendorBundleMinuteMap.put(key, performanceVendorBundleMinute);
+                } else {
+                    String key = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(performanceVendorBundleMinute.getTime().toInstant().atZone(ZoneId.of(timezone))) + "|" + performanceVendorBundleMinute.getVendorPort() + "|" + performanceVendorBundleMinute.getBundle();
+                    performanceVendorBundleMinuteMap.put(key, performanceVendorBundleMinute);
+                }
+            }
             for (PerformanceVendorBundleQuarter performanceVendorBundleQuarter : performanceVendorBundleQuarterList) {
                 entityManager.detach(performanceVendorBundleQuarter);
                 performanceVendorBundleQuarter.setId(null);
 
                 if (performanceVendorBundleQuarter.getClientPort() != 0) {
                     String key = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(performanceVendorBundleQuarter.getTime().toInstant().atZone(ZoneId.of(timezone))) + "|" + performanceVendorBundleQuarter.getClientPort() + "|" + performanceVendorBundleQuarter.getVendorPort() + "|" + performanceVendorBundleQuarter.getBundle();
-                    existingPerformanceVendorBundleQuarterKeys.add(key);
                     performanceVendorBundleQuarterMap.put(key, performanceVendorBundleQuarter);
                 } else {
                     String key = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(performanceVendorBundleQuarter.getTime().toInstant().atZone(ZoneId.of(timezone))) + "|" + performanceVendorBundleQuarter.getVendorPort() + "|" + performanceVendorBundleQuarter.getBundle();
@@ -1503,29 +1771,57 @@ public class PerformanceCollectingService {
             }
         }
 
+        performanceClientBundleMinuteRepository.deleteByTimeBetween(Timestamp.from(startMinute.toInstant()), Timestamp.from(endMinute.toInstant()));
         performanceClientBundleQuarterRepository.deleteByTimeBetween(Timestamp.from(startQuarter.toInstant()), Timestamp.from(endQuarter.toInstant()));
         performanceClientBundleHourRepository.deleteByTimeBetween(Timestamp.from(startHour.toInstant()), Timestamp.from(endHour.toInstant()));
         performanceClientBundleDayRepository.deleteByTimeBetween(Timestamp.from(startDay.toInstant()), Timestamp.from(endDay.toInstant()));
+        performanceVendorBundleMinuteRepository.deleteByTimeBetween(Timestamp.from(startMinute.toInstant()), Timestamp.from(endMinute.toInstant()));
         performanceVendorBundleQuarterRepository.deleteByTimeBetween(Timestamp.from(startQuarter.toInstant()), Timestamp.from(endQuarter.toInstant()));
         performanceVendorBundleHourRepository.deleteByTimeBetween(Timestamp.from(startHour.toInstant()), Timestamp.from(endHour.toInstant()));
         performanceVendorBundleDayRepository.deleteByTimeBetween(Timestamp.from(startDay.toInstant()), Timestamp.from(endDay.toInstant()));
 
         for (PerformanceBundle performanceBundle : performanceBundleList) {
             ZonedDateTime time = performanceBundle.getTime().toInstant().atZone(ZoneId.of(timezone));
+            ZonedDateTime timeMinute = time.withMinute(time.getMinute() / 3 * 3).withSecond(0).withNano(0);
             ZonedDateTime timeQuarter = time.withMinute(time.getMinute() / 15 * 15).withSecond(0).withNano(0);
             ZonedDateTime timeHour = time.withMinute(0).withSecond(0).withNano(0);
             ZonedDateTime timeDay = time.withHour(0).withMinute(0).withSecond(0).withNano(0);
-            String existingQuarterKey = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + performanceBundle.getClientPort() + "|" + performanceBundle.getVendorPort() + "|" + performanceBundle.getBundle();
+            String existingMinuteKey = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + performanceBundle.getClientPort() + "|" + performanceBundle.getVendorPort() + "|" + performanceBundle.getBundle();
             char eventType = performanceBundle.getEvent().charAt(0);
 
             if (incremental && (
-                    eventType == 'Z' && existingPerformanceClientBundleQuarterKeys.contains(existingQuarterKey) ||
-                    "ABCDEFGHIJ".indexOf(eventType) >= 0 && existingPerformanceVendorBundleQuarterKeys.contains(existingQuarterKey) ||
-                    "abz".indexOf(eventType) >= 0 && (existingPerformanceClientBundleQuarterKeys.contains(existingQuarterKey) || existingPerformanceVendorBundleQuarterKeys.contains(existingQuarterKey)))) {
+                    eventType == 'Z' && existingPerformanceClientBundleMinuteKeys.contains(existingMinuteKey) ||
+                    "ABCDEFGHIJ".indexOf(eventType) >= 0 && existingPerformanceVendorBundleMinuteKeys.contains(existingMinuteKey) ||
+                    "abz".indexOf(eventType) >= 0 && (existingPerformanceClientBundleMinuteKeys.contains(existingMinuteKey) || existingPerformanceVendorBundleMinuteKeys.contains(existingMinuteKey)))) {
                 continue;
             }
 
             if ("Z".indexOf(performanceBundle.getEvent().charAt(0)) >= 0) {
+                String keyClientMinute = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + performanceBundle.getClientPort() + "|" + performanceBundle.getVendorPort() + "|" + performanceBundle.getBundle();
+                if (!performanceClientBundleMinuteMap.containsKey(keyClientMinute)) {
+                    PerformanceClientBundleMinute performanceClientBundleMinute = new PerformanceClientBundleMinute(performanceBundle.getClientPort(), performanceBundle.getVendorPort(), performanceBundle.getBundle(), Timestamp.from(timeMinute.toInstant()));
+                    performanceClientBundleMinuteMap.put(keyClientMinute, performanceClientBundleMinute);
+                }
+                PerformanceClientBundleMinute performanceClientBundleMinute = performanceClientBundleMinuteMap.get(keyClientMinute);
+                switch (performanceBundle.getEvent().substring(1, 2)) {
+                    case "A": performanceClientBundleMinute.setEventA(performanceClientBundleMinute.getEventA() + performanceBundle.getAmount());break;
+                    case "B": performanceClientBundleMinute.setEventB(performanceClientBundleMinute.getEventB() + performanceBundle.getAmount());break;
+                    case "C": performanceClientBundleMinute.setEventC(performanceClientBundleMinute.getEventC() + performanceBundle.getAmount());break;
+                    case "D": performanceClientBundleMinute.setEventD(performanceClientBundleMinute.getEventD() + performanceBundle.getAmount());break;
+                    case "E": performanceClientBundleMinute.setEventE(performanceClientBundleMinute.getEventE() + performanceBundle.getAmount());break;
+                    case "F": performanceClientBundleMinute.setEventF(performanceClientBundleMinute.getEventF() + performanceBundle.getAmount());break;
+                    case "G": performanceClientBundleMinute.setEventG(performanceClientBundleMinute.getEventG() + performanceBundle.getAmount());break;
+                    case "H": performanceClientBundleMinute.setEventH(performanceClientBundleMinute.getEventH() + performanceBundle.getAmount());break;
+                    case "I": performanceClientBundleMinute.setEventI(performanceClientBundleMinute.getEventI() + performanceBundle.getAmount());break;
+                    case "J": performanceClientBundleMinute.setEventJ(performanceClientBundleMinute.getEventJ() + performanceBundle.getAmount());break;
+                    case "K": performanceClientBundleMinute.setEventK(performanceClientBundleMinute.getEventK() + performanceBundle.getAmount());break;
+                    case "L": performanceClientBundleMinute.setEventL(performanceClientBundleMinute.getEventL() + performanceBundle.getAmount());break;
+                    case "M": performanceClientBundleMinute.setEventM(performanceClientBundleMinute.getEventM() + performanceBundle.getAmount());break;
+                    case "N": performanceClientBundleMinute.setEventN(performanceClientBundleMinute.getEventN() + performanceBundle.getAmount());break;
+                    case "O": performanceClientBundleMinute.setEventO(performanceClientBundleMinute.getEventO() + performanceBundle.getAmount());break;
+                    default: break;
+                }
+
                 String keyClientQuarter = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + performanceBundle.getClientPort() + "|" + performanceBundle.getVendorPort() + "|" + performanceBundle.getBundle();
                 if (!performanceClientBundleQuarterMap.containsKey(keyClientQuarter)) {
                     PerformanceClientBundleQuarter performanceClientBundleQuarter = new PerformanceClientBundleQuarter(performanceBundle.getClientPort(), performanceBundle.getVendorPort(), performanceBundle.getBundle(), Timestamp.from(timeQuarter.toInstant()));
@@ -1598,6 +1894,31 @@ public class PerformanceCollectingService {
                     case "M": performanceClientBundleDay.setEventM(performanceClientBundleDay.getEventM() + performanceBundle.getAmount());break;
                     case "N": performanceClientBundleDay.setEventN(performanceClientBundleDay.getEventN() + performanceBundle.getAmount());break;
                     case "O": performanceClientBundleDay.setEventO(performanceClientBundleDay.getEventO() + performanceBundle.getAmount());break;
+                    default: break;
+                }
+
+                String keyClientMinute0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + performanceBundle.getClientPort() + "|" + performanceBundle.getBundle();
+                if (!performanceClientBundleMinuteMap.containsKey(keyClientMinute0)) {
+                    PerformanceClientBundleMinute performanceClientBundleMinute0 = new PerformanceClientBundleMinute(performanceBundle.getClientPort(), 0, performanceBundle.getBundle(), Timestamp.from(timeMinute.toInstant()));
+                    performanceClientBundleMinuteMap.put(keyClientMinute0, performanceClientBundleMinute0);
+                }
+                PerformanceClientBundleMinute performanceClientBundleMinute0 = performanceClientBundleMinuteMap.get(keyClientMinute0);
+                switch (performanceBundle.getEvent().substring(1, 2)) {
+                    case "A": performanceClientBundleMinute0.setEventA(performanceClientBundleMinute0.getEventA() + performanceBundle.getAmount());break;
+                    case "B": performanceClientBundleMinute0.setEventB(performanceClientBundleMinute0.getEventB() + performanceBundle.getAmount());break;
+                    case "C": performanceClientBundleMinute0.setEventC(performanceClientBundleMinute0.getEventC() + performanceBundle.getAmount());break;
+                    case "D": performanceClientBundleMinute0.setEventD(performanceClientBundleMinute0.getEventD() + performanceBundle.getAmount());break;
+                    case "E": performanceClientBundleMinute0.setEventE(performanceClientBundleMinute0.getEventE() + performanceBundle.getAmount());break;
+                    case "F": performanceClientBundleMinute0.setEventF(performanceClientBundleMinute0.getEventF() + performanceBundle.getAmount());break;
+                    case "G": performanceClientBundleMinute0.setEventG(performanceClientBundleMinute0.getEventG() + performanceBundle.getAmount());break;
+                    case "H": performanceClientBundleMinute0.setEventH(performanceClientBundleMinute0.getEventH() + performanceBundle.getAmount());break;
+                    case "I": performanceClientBundleMinute0.setEventI(performanceClientBundleMinute0.getEventI() + performanceBundle.getAmount());break;
+                    case "J": performanceClientBundleMinute0.setEventJ(performanceClientBundleMinute0.getEventJ() + performanceBundle.getAmount());break;
+                    case "K": performanceClientBundleMinute0.setEventK(performanceClientBundleMinute0.getEventK() + performanceBundle.getAmount());break;
+                    case "L": performanceClientBundleMinute0.setEventL(performanceClientBundleMinute0.getEventL() + performanceBundle.getAmount());break;
+                    case "M": performanceClientBundleMinute0.setEventM(performanceClientBundleMinute0.getEventM() + performanceBundle.getAmount());break;
+                    case "N": performanceClientBundleMinute0.setEventN(performanceClientBundleMinute0.getEventN() + performanceBundle.getAmount());break;
+                    case "O": performanceClientBundleMinute0.setEventO(performanceClientBundleMinute0.getEventO() + performanceBundle.getAmount());break;
                     default: break;
                 }
 
@@ -1677,6 +1998,26 @@ public class PerformanceCollectingService {
                 }
             }
             if ("ABCDEFGHIJ".indexOf(performanceBundle.getEvent().charAt(0)) >= 0) {
+                String keyVendorMinute = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + performanceBundle.getClientPort() + "|" + performanceBundle.getVendorPort() + "|" + performanceBundle.getBundle();
+                if (!performanceVendorBundleMinuteMap.containsKey(keyVendorMinute)) {
+                    PerformanceVendorBundleMinute performanceVendorBundleMinute = new PerformanceVendorBundleMinute(performanceBundle.getClientPort(), performanceBundle.getVendorPort(), performanceBundle.getBundle(), Timestamp.from(timeMinute.toInstant()));
+                    performanceVendorBundleMinuteMap.put(keyVendorMinute, performanceVendorBundleMinute);
+                }
+                PerformanceVendorBundleMinute performanceVendorBundleMinute = performanceVendorBundleMinuteMap.get(keyVendorMinute);
+                switch (performanceBundle.getEvent().substring(0, 1)) {
+                    case "A": performanceVendorBundleMinute.setEventA(performanceVendorBundleMinute.getEventA() + performanceBundle.getAmount());break;
+                    case "B": performanceVendorBundleMinute.setEventB(performanceVendorBundleMinute.getEventB() + performanceBundle.getAmount());break;
+                    case "C": performanceVendorBundleMinute.setEventC(performanceVendorBundleMinute.getEventC() + performanceBundle.getAmount());break;
+                    case "D": performanceVendorBundleMinute.setEventD(performanceVendorBundleMinute.getEventD() + performanceBundle.getAmount());break;
+                    case "E": performanceVendorBundleMinute.setEventE(performanceVendorBundleMinute.getEventE() + performanceBundle.getAmount());break;
+                    case "F": performanceVendorBundleMinute.setEventF(performanceVendorBundleMinute.getEventF() + performanceBundle.getAmount());break;
+                    case "G": performanceVendorBundleMinute.setEventG(performanceVendorBundleMinute.getEventG() + performanceBundle.getAmount());break;
+                    case "H": performanceVendorBundleMinute.setEventH(performanceVendorBundleMinute.getEventH() + performanceBundle.getAmount());break;
+                    case "I": performanceVendorBundleMinute.setEventI(performanceVendorBundleMinute.getEventI() + performanceBundle.getAmount());break;
+                    case "J": performanceVendorBundleMinute.setEventJ(performanceVendorBundleMinute.getEventJ() + performanceBundle.getAmount());break;
+                    default: break;
+                }
+
                 String keyVendorQuarter = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + performanceBundle.getClientPort() + "|" + performanceBundle.getVendorPort() + "|" + performanceBundle.getBundle();
                 if (!performanceVendorBundleQuarterMap.containsKey(keyVendorQuarter)) {
                     PerformanceVendorBundleQuarter performanceVendorBundleQuarter = new PerformanceVendorBundleQuarter(performanceBundle.getClientPort(), performanceBundle.getVendorPort(), performanceBundle.getBundle(), Timestamp.from(timeQuarter.toInstant()));
@@ -1734,6 +2075,26 @@ public class PerformanceCollectingService {
                     case "H": performanceVendorBundleDay.setEventH(performanceVendorBundleDay.getEventH() + performanceBundle.getAmount());break;
                     case "I": performanceVendorBundleDay.setEventI(performanceVendorBundleDay.getEventI() + performanceBundle.getAmount());break;
                     case "J": performanceVendorBundleDay.setEventJ(performanceVendorBundleDay.getEventJ() + performanceBundle.getAmount());break;
+                    default: break;
+                }
+
+                String keyVendorMinute0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + performanceBundle.getVendorPort() + "|" + performanceBundle.getBundle();
+                if (!performanceVendorBundleMinuteMap.containsKey(keyVendorMinute0)) {
+                    PerformanceVendorBundleMinute performanceVendorBundleMinute0 = new PerformanceVendorBundleMinute(0, performanceBundle.getVendorPort(), performanceBundle.getBundle(), Timestamp.from(timeMinute.toInstant()));
+                    performanceVendorBundleMinuteMap.put(keyVendorMinute0, performanceVendorBundleMinute0);
+                }
+                PerformanceVendorBundleMinute performanceVendorBundleMinute0 = performanceVendorBundleMinuteMap.get(keyVendorMinute0);
+                switch (performanceBundle.getEvent().substring(0, 1)) {
+                    case "A": performanceVendorBundleMinute0.setEventA(performanceVendorBundleMinute0.getEventA() + performanceBundle.getAmount());break;
+                    case "B": performanceVendorBundleMinute0.setEventB(performanceVendorBundleMinute0.getEventB() + performanceBundle.getAmount());break;
+                    case "C": performanceVendorBundleMinute0.setEventC(performanceVendorBundleMinute0.getEventC() + performanceBundle.getAmount());break;
+                    case "D": performanceVendorBundleMinute0.setEventD(performanceVendorBundleMinute0.getEventD() + performanceBundle.getAmount());break;
+                    case "E": performanceVendorBundleMinute0.setEventE(performanceVendorBundleMinute0.getEventE() + performanceBundle.getAmount());break;
+                    case "F": performanceVendorBundleMinute0.setEventF(performanceVendorBundleMinute0.getEventF() + performanceBundle.getAmount());break;
+                    case "G": performanceVendorBundleMinute0.setEventG(performanceVendorBundleMinute0.getEventG() + performanceBundle.getAmount());break;
+                    case "H": performanceVendorBundleMinute0.setEventH(performanceVendorBundleMinute0.getEventH() + performanceBundle.getAmount());break;
+                    case "I": performanceVendorBundleMinute0.setEventI(performanceVendorBundleMinute0.getEventI() + performanceBundle.getAmount());break;
+                    case "J": performanceVendorBundleMinute0.setEventJ(performanceVendorBundleMinute0.getEventJ() + performanceBundle.getAmount());break;
                     default: break;
                 }
 
@@ -1798,6 +2159,18 @@ public class PerformanceCollectingService {
                 }
             }
             if ("ab".indexOf(performanceBundle.getEvent().charAt(0)) >= 0) {
+                String keyClientMinute = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + performanceBundle.getClientPort() + "|" + performanceBundle.getVendorPort() + "|" + performanceBundle.getBundle();
+                if (!performanceClientBundleMinuteMap.containsKey(keyClientMinute)) {
+                    PerformanceClientBundleMinute performanceClientBundleMinute = new PerformanceClientBundleMinute(performanceBundle.getClientPort(), performanceBundle.getVendorPort(), performanceBundle.getBundle(), Timestamp.from(timeMinute.toInstant()));
+                    performanceClientBundleMinuteMap.put(keyClientMinute, performanceClientBundleMinute);
+                }
+                PerformanceClientBundleMinute performanceClientBundleMinute = performanceClientBundleMinuteMap.get(keyClientMinute);
+                switch (performanceBundle.getEvent().substring(0, 1)) {
+                    case "a": performanceClientBundleMinute.setImpression(performanceClientBundleMinute.getImpression() + performanceBundle.getAmount());break;
+                    case "b": performanceClientBundleMinute.setClick(performanceClientBundleMinute.getClick() + performanceBundle.getAmount());break;
+                    default: break;
+                }
+
                 String keyClientQuarter = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + performanceBundle.getClientPort() + "|" + performanceBundle.getVendorPort() + "|" + performanceBundle.getBundle();
                 if (!performanceClientBundleQuarterMap.containsKey(keyClientQuarter)) {
                     PerformanceClientBundleQuarter performanceClientBundleQuarter = new PerformanceClientBundleQuarter(performanceBundle.getClientPort(), performanceBundle.getVendorPort(), performanceBundle.getBundle(), Timestamp.from(timeQuarter.toInstant()));
@@ -1831,6 +2204,18 @@ public class PerformanceCollectingService {
                 switch (performanceBundle.getEvent().substring(0, 1)) {
                     case "a": performanceClientBundleDay.setImpression(performanceClientBundleDay.getImpression() + performanceBundle.getAmount());break;
                     case "b": performanceClientBundleDay.setClick(performanceClientBundleDay.getClick() + performanceBundle.getAmount());break;
+                    default: break;
+                }
+
+                String keyVendorMinute = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + performanceBundle.getClientPort() + "|" + performanceBundle.getVendorPort() + "|" + performanceBundle.getBundle();
+                if (!performanceVendorBundleMinuteMap.containsKey(keyVendorMinute)) {
+                    PerformanceVendorBundleMinute performanceVendorBundleMinute = new PerformanceVendorBundleMinute(performanceBundle.getClientPort(), performanceBundle.getVendorPort(), performanceBundle.getBundle(), Timestamp.from(timeMinute.toInstant()));
+                    performanceVendorBundleMinuteMap.put(keyVendorMinute, performanceVendorBundleMinute);
+                }
+                PerformanceVendorBundleMinute performanceVendorBundleMinute = performanceVendorBundleMinuteMap.get(keyVendorMinute);
+                switch (performanceBundle.getEvent().substring(0, 1)) {
+                    case "a": performanceVendorBundleMinute.setImpression(performanceVendorBundleMinute.getImpression() + performanceBundle.getAmount());break;
+                    case "b": performanceVendorBundleMinute.setClick(performanceVendorBundleMinute.getClick() + performanceBundle.getAmount());break;
                     default: break;
                 }
 
@@ -1870,6 +2255,18 @@ public class PerformanceCollectingService {
                     default: break;
                 }
 
+                String keyClientMinute0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + performanceBundle.getClientPort() + "|" + performanceBundle.getBundle();
+                if (!performanceClientBundleMinuteMap.containsKey(keyClientMinute0)) {
+                    PerformanceClientBundleMinute performanceClientBundleMinute0 = new PerformanceClientBundleMinute(performanceBundle.getClientPort(), 0, performanceBundle.getBundle(), Timestamp.from(timeMinute.toInstant()));
+                    performanceClientBundleMinuteMap.put(keyClientMinute0, performanceClientBundleMinute0);
+                }
+                PerformanceClientBundleMinute performanceClientBundleMinute0 = performanceClientBundleMinuteMap.get(keyClientMinute0);
+                switch (performanceBundle.getEvent().substring(0, 1)) {
+                    case "a": performanceClientBundleMinute0.setImpression(performanceClientBundleMinute0.getImpression() + performanceBundle.getAmount());break;
+                    case "b": performanceClientBundleMinute0.setClick(performanceClientBundleMinute0.getClick() + performanceBundle.getAmount());break;
+                    default: break;
+                }
+
                 String keyClientQuarter0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + performanceBundle.getClientPort() + "|" + performanceBundle.getBundle();
                 if (!performanceClientBundleQuarterMap.containsKey(keyClientQuarter0)) {
                     PerformanceClientBundleQuarter performanceClientBundleQuarter0 = new PerformanceClientBundleQuarter(performanceBundle.getClientPort(), 0, performanceBundle.getBundle(), Timestamp.from(timeQuarter.toInstant()));
@@ -1903,6 +2300,18 @@ public class PerformanceCollectingService {
                 switch (performanceBundle.getEvent().substring(0, 1)) {
                     case "a": performanceClientBundleDay0.setImpression(performanceClientBundleDay0.getImpression() + performanceBundle.getAmount());break;
                     case "b": performanceClientBundleDay0.setClick(performanceClientBundleDay0.getClick() + performanceBundle.getAmount());break;
+                    default: break;
+                }
+
+                String keyVendorMinute0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + performanceBundle.getVendorPort() + "|" + performanceBundle.getBundle();
+                if (!performanceVendorBundleMinuteMap.containsKey(keyVendorMinute0)) {
+                    PerformanceVendorBundleMinute performanceVendorBundleMinute0 = new PerformanceVendorBundleMinute(0, performanceBundle.getVendorPort(), performanceBundle.getBundle(), Timestamp.from(timeMinute.toInstant()));
+                    performanceVendorBundleMinuteMap.put(keyVendorMinute0, performanceVendorBundleMinute0);
+                }
+                PerformanceVendorBundleMinute performanceVendorBundleMinute0 = performanceVendorBundleMinuteMap.get(keyVendorMinute0);
+                switch (performanceBundle.getEvent().substring(0, 1)) {
+                    case "a": performanceVendorBundleMinute0.setImpression(performanceVendorBundleMinute0.getImpression() + performanceBundle.getAmount());break;
+                    case "b": performanceVendorBundleMinute0.setClick(performanceVendorBundleMinute0.getClick() + performanceBundle.getAmount());break;
                     default: break;
                 }
 
@@ -1945,14 +2354,26 @@ public class PerformanceCollectingService {
         }
         for (FinanceBundle financeBundle : financeBundleList) {
             ZonedDateTime time = financeBundle.getTime().toInstant().atZone(ZoneId.of(timezone));
+            ZonedDateTime timeMinute = time.withMinute(time.getMinute() / 3 * 3).withSecond(0).withNano(0);
             ZonedDateTime timeQuarter = time.withMinute(time.getMinute() / 15 * 15).withSecond(0).withNano(0);
             ZonedDateTime timeHour = time.withMinute(0).withSecond(0).withNano(0);
             ZonedDateTime timeDay = time.withHour(0).withMinute(0).withSecond(0).withNano(0);
-            String existingQuarterKey = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + financeBundle.getClientPort() + "|" + financeBundle.getVendorPort() + "|" + financeBundle.getBundle();
+            String existingMinuteKey = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + financeBundle.getClientPort() + "|" + financeBundle.getVendorPort() + "|" + financeBundle.getBundle();
 
-            if (incremental && (existingPerformanceClientBundleQuarterKeys.contains(existingQuarterKey) || existingPerformanceVendorBundleQuarterKeys.contains(existingQuarterKey))) {
+            if (incremental && (existingPerformanceClientBundleMinuteKeys.contains(existingMinuteKey) || existingPerformanceVendorBundleMinuteKeys.contains(existingMinuteKey))) {
                 continue;
             }
+
+            String keyClientMinute = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + financeBundle.getClientPort() + "|" + financeBundle.getVendorPort() + "|" + financeBundle.getBundle();
+            if (!performanceClientBundleMinuteMap.containsKey(keyClientMinute)) {
+                PerformanceClientBundleMinute performanceClientBundleMinute = new PerformanceClientBundleMinute(financeBundle.getClientPort(), financeBundle.getVendorPort(), financeBundle.getBundle(), Timestamp.from(timeMinute.toInstant()));
+                performanceClientBundleMinuteMap.put(keyClientMinute, performanceClientBundleMinute);
+            }
+            PerformanceClientBundleMinute performanceClientBundleMinute = performanceClientBundleMinuteMap.get(keyClientMinute);
+            performanceClientBundleMinute.setIncome(performanceClientBundleMinute.getIncome() + financeBundle.getIncome());
+            performanceClientBundleMinute.setOutcomeUpstream(performanceClientBundleMinute.getOutcomeUpstream() + (financeBundle.getOutcomeUpstream() == null ? 0 : financeBundle.getOutcomeUpstream()));
+            performanceClientBundleMinute.setOutcomeRebate(performanceClientBundleMinute.getOutcomeRebate() + (financeBundle.getOutcomeRebate() == null ? 0 : financeBundle.getOutcomeRebate()));
+            performanceClientBundleMinute.setOutcomeDownstream(performanceClientBundleMinute.getOutcomeDownstream() + financeBundle.getOutcomeDownstream());
 
             String keyClientQuarter = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + financeBundle.getClientPort() + "|" + financeBundle.getVendorPort() + "|" + financeBundle.getBundle();
             if (!performanceClientBundleQuarterMap.containsKey(keyClientQuarter)) {
@@ -1987,6 +2408,17 @@ public class PerformanceCollectingService {
             performanceClientBundleDay.setOutcomeRebate(performanceClientBundleDay.getOutcomeRebate() + (financeBundle.getOutcomeRebate() == null ? 0 : financeBundle.getOutcomeRebate()));
             performanceClientBundleDay.setOutcomeDownstream(performanceClientBundleDay.getOutcomeDownstream() + financeBundle.getOutcomeDownstream());
 
+            String keyVendorMinute = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + financeBundle.getClientPort() + "|" + financeBundle.getVendorPort() + "|" + financeBundle.getBundle();
+            if (!performanceVendorBundleMinuteMap.containsKey(keyVendorMinute)) {
+                PerformanceVendorBundleMinute performanceVendorBundleMinute = new PerformanceVendorBundleMinute(financeBundle.getClientPort(), financeBundle.getVendorPort(), financeBundle.getBundle(), Timestamp.from(timeMinute.toInstant()));
+                performanceVendorBundleMinuteMap.put(keyVendorMinute, performanceVendorBundleMinute);
+            }
+            PerformanceVendorBundleMinute performanceVendorBundleMinute = performanceVendorBundleMinuteMap.get(keyVendorMinute);
+            performanceVendorBundleMinute.setIncome(performanceVendorBundleMinute.getIncome() + financeBundle.getIncome());
+            performanceVendorBundleMinute.setOutcomeUpstream(performanceVendorBundleMinute.getOutcomeUpstream() + (financeBundle.getOutcomeUpstream() == null ? 0 : financeBundle.getOutcomeUpstream()));
+            performanceVendorBundleMinute.setOutcomeRebate(performanceVendorBundleMinute.getOutcomeRebate() + (financeBundle.getOutcomeRebate() == null ? 0 : financeBundle.getOutcomeRebate()));
+            performanceVendorBundleMinute.setOutcomeDownstream(performanceVendorBundleMinute.getOutcomeDownstream() + financeBundle.getOutcomeDownstream());
+
             String keyVendorQuarter = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + financeBundle.getClientPort() + "|" + financeBundle.getVendorPort() + "|" + financeBundle.getBundle();
             if (!performanceVendorBundleQuarterMap.containsKey(keyVendorQuarter)) {
                 PerformanceVendorBundleQuarter performanceVendorBundleQuarter = new PerformanceVendorBundleQuarter(financeBundle.getClientPort(), financeBundle.getVendorPort(), financeBundle.getBundle(), Timestamp.from(timeQuarter.toInstant()));
@@ -2020,6 +2452,17 @@ public class PerformanceCollectingService {
             performanceVendorBundleDay.setOutcomeRebate(performanceVendorBundleDay.getOutcomeRebate() + (financeBundle.getOutcomeRebate() == null ? 0 : financeBundle.getOutcomeRebate()));
             performanceVendorBundleDay.setOutcomeDownstream(performanceVendorBundleDay.getOutcomeDownstream() + financeBundle.getOutcomeDownstream());
 
+            String keyClientMinute0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + financeBundle.getClientPort() + "|" + financeBundle.getBundle();
+            if (!performanceClientBundleMinuteMap.containsKey(keyClientMinute0)) {
+                PerformanceClientBundleMinute performanceClientBundleMinute0 = new PerformanceClientBundleMinute(financeBundle.getClientPort(), 0, financeBundle.getBundle(), Timestamp.from(timeMinute.toInstant()));
+                performanceClientBundleMinuteMap.put(keyClientMinute0, performanceClientBundleMinute0);
+            }
+            PerformanceClientBundleMinute performanceClientBundleMinute0 = performanceClientBundleMinuteMap.get(keyClientMinute0);
+            performanceClientBundleMinute0.setIncome(performanceClientBundleMinute0.getIncome() + financeBundle.getIncome());
+            performanceClientBundleMinute0.setOutcomeUpstream(performanceClientBundleMinute0.getOutcomeUpstream() + (financeBundle.getOutcomeUpstream() == null ? 0 : financeBundle.getOutcomeUpstream()));
+            performanceClientBundleMinute0.setOutcomeRebate(performanceClientBundleMinute0.getOutcomeRebate() + (financeBundle.getOutcomeRebate() == null ? 0 : financeBundle.getOutcomeRebate()));
+            performanceClientBundleMinute0.setOutcomeDownstream(performanceClientBundleMinute0.getOutcomeDownstream() + financeBundle.getOutcomeDownstream());
+
             String keyClientQuarter0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + financeBundle.getClientPort() + "|" + financeBundle.getBundle();
             if (!performanceClientBundleQuarterMap.containsKey(keyClientQuarter0)) {
                 PerformanceClientBundleQuarter performanceClientBundleQuarter0 = new PerformanceClientBundleQuarter(financeBundle.getClientPort(), 0, financeBundle.getBundle(), Timestamp.from(timeQuarter.toInstant()));
@@ -2052,6 +2495,17 @@ public class PerformanceCollectingService {
             performanceClientBundleDay0.setOutcomeUpstream(performanceClientBundleDay0.getOutcomeUpstream() + (financeBundle.getOutcomeUpstream() == null ? 0 : financeBundle.getOutcomeUpstream()));
             performanceClientBundleDay0.setOutcomeRebate(performanceClientBundleDay0.getOutcomeRebate() + (financeBundle.getOutcomeRebate() == null ? 0 : financeBundle.getOutcomeRebate()));
             performanceClientBundleDay0.setOutcomeDownstream(performanceClientBundleDay0.getOutcomeDownstream() + financeBundle.getOutcomeDownstream());
+
+            String keyVendorMinute0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + financeBundle.getVendorPort() + "|" + financeBundle.getBundle();
+            if (!performanceVendorBundleMinuteMap.containsKey(keyVendorMinute0)) {
+                PerformanceVendorBundleMinute performanceVendorBundleMinute0 = new PerformanceVendorBundleMinute(0, financeBundle.getVendorPort(), financeBundle.getBundle(), Timestamp.from(timeMinute.toInstant()));
+                performanceVendorBundleMinuteMap.put(keyVendorMinute0, performanceVendorBundleMinute0);
+            }
+            PerformanceVendorBundleMinute performanceVendorBundleMinute0 = performanceVendorBundleMinuteMap.get(keyVendorMinute0);
+            performanceVendorBundleMinute0.setIncome(performanceVendorBundleMinute0.getIncome() + financeBundle.getIncome());
+            performanceVendorBundleMinute0.setOutcomeUpstream(performanceVendorBundleMinute0.getOutcomeUpstream() + (financeBundle.getOutcomeUpstream() == null ? 0 : financeBundle.getOutcomeUpstream()));
+            performanceVendorBundleMinute0.setOutcomeRebate(performanceVendorBundleMinute0.getOutcomeRebate() + (financeBundle.getOutcomeRebate() == null ? 0 : financeBundle.getOutcomeRebate()));
+            performanceVendorBundleMinute0.setOutcomeDownstream(performanceVendorBundleMinute0.getOutcomeDownstream() + financeBundle.getOutcomeDownstream());
 
             String keyVendorQuarter0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + financeBundle.getVendorPort() + "|" + financeBundle.getBundle();
             if (!performanceVendorBundleQuarterMap.containsKey(keyVendorQuarter0)) {
@@ -2087,9 +2541,11 @@ public class PerformanceCollectingService {
             performanceVendorBundleDay0.setOutcomeDownstream(performanceVendorBundleDay0.getOutcomeDownstream() + financeBundle.getOutcomeDownstream());
         }
 
+        performanceClientBundleMinuteRepository.saveAll(performanceClientBundleMinuteMap.values());
         performanceClientBundleQuarterRepository.saveAll(performanceClientBundleQuarterMap.values());
         performanceClientBundleHourRepository.saveAll(performanceClientBundleHourMap.values());
         performanceClientBundleDayRepository.saveAll(performanceClientBundleDayMap.values());
+        performanceVendorBundleMinuteRepository.saveAll(performanceVendorBundleMinuteMap.values());
         performanceVendorBundleQuarterRepository.saveAll(performanceVendorBundleQuarterMap.values());
         performanceVendorBundleHourRepository.saveAll(performanceVendorBundleHourMap.values());
         performanceVendorBundleDayRepository.saveAll(performanceVendorBundleDayMap.values());

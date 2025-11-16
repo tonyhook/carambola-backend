@@ -46,15 +46,19 @@ import org.springframework.stereotype.Service;
 
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientBundleDayRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientBundleHourRepository;
+import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientBundleMinuteRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientBundleQuarterRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientDayRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientHourRepository;
+import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientMinuteRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceClientQuarterRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceVendorBundleDayRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceVendorBundleHourRepository;
+import cc.tonyhook.carambola.backend.dao.ad.PerformanceVendorBundleMinuteRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceVendorBundleQuarterRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceVendorDayRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceVendorHourRepository;
+import cc.tonyhook.carambola.backend.dao.ad.PerformanceVendorMinuteRepository;
 import cc.tonyhook.carambola.backend.dao.ad.PerformanceVendorQuarterRepository;
 import cc.tonyhook.carambola.backend.entity.ad.Client;
 import cc.tonyhook.carambola.backend.entity.ad.ClientMedia;
@@ -68,17 +72,21 @@ import cc.tonyhook.carambola.backend.entity.ad.PerformanceClient;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceClientBundle;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceClientBundleDay;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceClientBundleHour;
+import cc.tonyhook.carambola.backend.entity.ad.PerformanceClientBundleMinute;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceClientBundleQuarter;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceClientDay;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceClientHour;
+import cc.tonyhook.carambola.backend.entity.ad.PerformanceClientMinute;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceClientQuarter;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceVendor;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceVendorBundle;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceVendorBundleDay;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceVendorBundleHour;
+import cc.tonyhook.carambola.backend.entity.ad.PerformanceVendorBundleMinute;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceVendorBundleQuarter;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceVendorDay;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceVendorHour;
+import cc.tonyhook.carambola.backend.entity.ad.PerformanceVendorMinute;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceVendorQuarter;
 import cc.tonyhook.carambola.backend.entity.ad.PerformanceView;
 import cc.tonyhook.carambola.backend.entity.ad.TrafficControl;
@@ -92,15 +100,19 @@ import io.lettuce.core.api.StatefulConnection;
 @Service
 public class PerformanceService {
 
+    private final PerformanceClientMinuteRepository performanceClientMinuteRepository;
     private final PerformanceClientQuarterRepository performanceClientQuarterRepository;
     private final PerformanceClientHourRepository performanceClientHourRepository;
     private final PerformanceClientDayRepository performanceClientDayRepository;
+    private final PerformanceVendorMinuteRepository performanceVendorMinuteRepository;
     private final PerformanceVendorQuarterRepository performanceVendorQuarterRepository;
     private final PerformanceVendorHourRepository performanceVendorHourRepository;
     private final PerformanceVendorDayRepository performanceVendorDayRepository;
+    private final PerformanceClientBundleMinuteRepository performanceClientBundleMinuteRepository;
     private final PerformanceClientBundleQuarterRepository performanceClientBundleQuarterRepository;
     private final PerformanceClientBundleHourRepository performanceClientBundleHourRepository;
     private final PerformanceClientBundleDayRepository performanceClientBundleDayRepository;
+    private final PerformanceVendorBundleMinuteRepository performanceVendorBundleMinuteRepository;
     private final PerformanceVendorBundleQuarterRepository performanceVendorBundleQuarterRepository;
     private final PerformanceVendorBundleHourRepository performanceVendorBundleHourRepository;
     private final PerformanceVendorBundleDayRepository performanceVendorBundleDayRepository;
@@ -114,15 +126,19 @@ public class PerformanceService {
     private final PartnerService partnerService;
 
     public PerformanceService(
+            PerformanceClientMinuteRepository performanceClientMinuteRepository,
             PerformanceClientQuarterRepository performanceClientQuarterRepository,
             PerformanceClientHourRepository performanceClientHourRepository,
             PerformanceClientDayRepository performanceClientDayRepository,
+            PerformanceVendorMinuteRepository performanceVendorMinuteRepository,
             PerformanceVendorQuarterRepository performanceVendorQuarterRepository,
             PerformanceVendorHourRepository performanceVendorHourRepository,
             PerformanceVendorDayRepository performanceVendorDayRepository,
+            PerformanceClientBundleMinuteRepository performanceClientBundleMinuteRepository,
             PerformanceClientBundleQuarterRepository performanceClientBundleQuarterRepository,
             PerformanceClientBundleHourRepository performanceClientBundleHourRepository,
             PerformanceClientBundleDayRepository performanceClientBundleDayRepository,
+            PerformanceVendorBundleMinuteRepository performanceVendorBundleMinuteRepository,
             PerformanceVendorBundleQuarterRepository performanceVendorBundleQuarterRepository,
             PerformanceVendorBundleHourRepository performanceVendorBundleHourRepository,
             PerformanceVendorBundleDayRepository performanceVendorBundleDayRepository,
@@ -134,15 +150,19 @@ public class PerformanceService {
             VendorPortService vendorPortService,
             PartnerService partnerService
     ) {
+        this.performanceClientMinuteRepository = performanceClientMinuteRepository;
         this.performanceClientQuarterRepository = performanceClientQuarterRepository;
         this.performanceClientHourRepository = performanceClientHourRepository;
         this.performanceClientDayRepository = performanceClientDayRepository;
+        this.performanceVendorMinuteRepository = performanceVendorMinuteRepository;
         this.performanceVendorQuarterRepository = performanceVendorQuarterRepository;
         this.performanceVendorHourRepository = performanceVendorHourRepository;
         this.performanceVendorDayRepository = performanceVendorDayRepository;
+        this.performanceClientBundleMinuteRepository = performanceClientBundleMinuteRepository;
         this.performanceClientBundleQuarterRepository = performanceClientBundleQuarterRepository;
         this.performanceClientBundleHourRepository = performanceClientBundleHourRepository;
         this.performanceClientBundleDayRepository = performanceClientBundleDayRepository;
+        this.performanceVendorBundleMinuteRepository = performanceVendorBundleMinuteRepository;
         this.performanceVendorBundleQuarterRepository = performanceVendorBundleQuarterRepository;
         this.performanceVendorBundleHourRepository = performanceVendorBundleHourRepository;
         this.performanceVendorBundleDayRepository = performanceVendorBundleDayRepository;
@@ -551,7 +571,24 @@ public class PerformanceService {
             vendorPortIdList.add(-1);
         }
 
-        if (interval.equals("quarter")) {
+        if (interval.equals("minute")) {
+            if (expand) {
+                List<PerformanceClientMinute> performanceClientMinuteList = new ArrayList<PerformanceClientMinute>();
+                if (clientPortIdList.size() > 0 && vendorPortIdList.size() == 0) {
+                    performanceClientMinuteList = performanceClientMinuteRepository.findDetailByClientPortInAndTimeBetween(clientPortIdList, start, end);
+                }
+                if (clientPortIdList.size() == 0 && vendorPortIdList.size() > 0) {
+                    performanceClientMinuteList = performanceClientMinuteRepository.findDetailByVendorPortInAndTimeBetween(vendorPortIdList, start, end);
+                }
+                if (clientPortIdList.size() > 0 && vendorPortIdList.size() > 0) {
+                    performanceClientMinuteList = performanceClientMinuteRepository.findDetailByClientPortInAndVendorPortInAndTimeBetween(clientPortIdList, vendorPortIdList, start, end);
+                }
+                return new ArrayList<PerformanceClient>(performanceClientMinuteList);
+            } else {
+                List<PerformanceClientMinute> performanceClientMinuteList = performanceClientMinuteRepository.findSummaryByClientPortInAndTimeBetween(clientPortIdList, start, end);
+                return new ArrayList<PerformanceClient>(performanceClientMinuteList);
+            }
+        } else if (interval.equals("quarter")) {
             if (expand) {
                 List<PerformanceClientQuarter> performanceClientQuarterList = new ArrayList<PerformanceClientQuarter>();
                 if (clientPortIdList.size() > 0 && vendorPortIdList.size() == 0) {
@@ -633,7 +670,24 @@ public class PerformanceService {
             clientPortIdList.add(-1);
         }
 
-        if (interval.equals("quarter")) {
+        if (interval.equals("minute")) {
+            if (expand) {
+                List<PerformanceVendorMinute> performanceVendorMinuteList = new ArrayList<PerformanceVendorMinute>();
+                if (clientPortIdList.size() > 0 && vendorPortIdList.size() == 0) {
+                    performanceVendorMinuteList = performanceVendorMinuteRepository.findDetailByClientPortInAndTimeBetween(clientPortIdList, start, end);
+                }
+                if (clientPortIdList.size() == 0 && vendorPortIdList.size() > 0) {
+                    performanceVendorMinuteList = performanceVendorMinuteRepository.findDetailByVendorPortInAndTimeBetween(vendorPortIdList, start, end);
+                }
+                if (clientPortIdList.size() > 0 && vendorPortIdList.size() > 0) {
+                    performanceVendorMinuteList = performanceVendorMinuteRepository.findDetailByClientPortInAndVendorPortInAndTimeBetween(clientPortIdList, vendorPortIdList, start, end);
+                }
+                return new ArrayList<PerformanceVendor>(performanceVendorMinuteList);
+            } else {
+                List<PerformanceVendorMinute> performanceVendorMinuteList = performanceVendorMinuteRepository.findSummaryByVendorPortInAndTimeBetween(vendorPortIdList, start, end);
+                return new ArrayList<PerformanceVendor>(performanceVendorMinuteList);
+            }
+        } else if (interval.equals("quarter")) {
             if (expand) {
                 List<PerformanceVendorQuarter> performanceVendorQuarterList = new ArrayList<PerformanceVendorQuarter>();
                 if (clientPortIdList.size() > 0 && vendorPortIdList.size() == 0) {
@@ -715,7 +769,15 @@ public class PerformanceService {
             vendorPortIdList.add(-1);
         }
 
-        if (interval.equals("quarter")) {
+        if (interval.equals("minute")) {
+            if (expand) {
+                List<PerformanceClientBundleMinute> performanceClientMinuteBundleList = performanceClientBundleMinuteRepository.findDetailByClientPortInAndVendorPortInAndTimeBetween(clientPortIdList, vendorPortIdList, start, end);
+                return new ArrayList<PerformanceClientBundle>(performanceClientMinuteBundleList);
+            } else {
+                List<PerformanceClientBundleMinute> performanceClientMinuteBundleList = performanceClientBundleMinuteRepository.findSummaryByClientPortInAndTimeBetween(clientPortIdList, start, end);
+                return new ArrayList<PerformanceClientBundle>(performanceClientMinuteBundleList);
+            }
+        } else if (interval.equals("quarter")) {
             if (expand) {
                 List<PerformanceClientBundleQuarter> performanceClientQuarterBundleList = performanceClientBundleQuarterRepository.findDetailByClientPortInAndVendorPortInAndTimeBetween(clientPortIdList, vendorPortIdList, start, end);
                 return new ArrayList<PerformanceClientBundle>(performanceClientQuarterBundleList);
@@ -770,7 +832,15 @@ public class PerformanceService {
             clientPortIdList.add(-1);
         }
 
-        if (interval.equals("quarter")) {
+        if (interval.equals("minute")) {
+            if (expand) {
+                List<PerformanceVendorBundleMinute> performanceVendorBundleMinuteList = performanceVendorBundleMinuteRepository.findDetailByClientPortInAndVendorPortInAndTimeBetween(clientPortIdList, vendorPortIdList, start, end);
+                return new ArrayList<PerformanceVendorBundle>(performanceVendorBundleMinuteList);
+            } else {
+                List<PerformanceVendorBundleMinute> performanceVendorBundleMinuteList = performanceVendorBundleMinuteRepository.findSummaryByVendorPortInAndTimeBetween(vendorPortIdList, start, end);
+                return new ArrayList<PerformanceVendorBundle>(performanceVendorBundleMinuteList);
+            }
+        } else if (interval.equals("quarter")) {
             if (expand) {
                 List<PerformanceVendorBundleQuarter> performanceVendorBundleQuarterList = performanceVendorBundleQuarterRepository.findDetailByClientPortInAndVendorPortInAndTimeBetween(clientPortIdList, vendorPortIdList, start, end);
                 return new ArrayList<PerformanceVendorBundle>(performanceVendorBundleQuarterList);
@@ -967,7 +1037,10 @@ public class PerformanceService {
         Map<Integer, VendorPort> vendorPortMap = vendorPortList.stream().collect(Collectors.toMap(VendorPort::getId, Function.identity(), (first, second) -> first));
 
         List<PerformanceClientBundle> performanceClientBundleList = new ArrayList<PerformanceClientBundle>();
-        if (interval.equals("quarter")) {
+        if (interval.equals("minute")) {
+            List<PerformanceClientBundleMinute> performanceClientBundleMinuteList = performanceClientBundleMinuteRepository.findDetailByClientPortInAndVendorPortInAndTimeBetween(clientPortIdList, vendorPortIdList, start, end);
+            performanceClientBundleList.addAll(performanceClientBundleMinuteList);
+        } else if (interval.equals("quarter")) {
             List<PerformanceClientBundleQuarter> performanceClientBundleQuarterList = performanceClientBundleQuarterRepository.findDetailByClientPortInAndVendorPortInAndTimeBetween(clientPortIdList, vendorPortIdList, start, end);
             performanceClientBundleList.addAll(performanceClientBundleQuarterList);
         } else if (interval.equals("hour")) {
@@ -1059,7 +1132,10 @@ public class PerformanceService {
         Map<Integer, VendorPort> vendorPortMap = vendorPortList.stream().collect(Collectors.toMap(VendorPort::getId, Function.identity(), (first, second) -> first));
 
         List<PerformanceVendorBundle> performanceVendorBundleList = new ArrayList<PerformanceVendorBundle>();
-        if (interval.equals("quarter")) {
+        if (interval.equals("minute")) {
+            List<PerformanceVendorBundleMinute> performanceVendorBundleMinuteList = performanceVendorBundleMinuteRepository.findDetailByClientPortInAndVendorPortInAndTimeBetween(clientPortIdList, vendorPortIdList, start, end);
+            performanceVendorBundleList.addAll(performanceVendorBundleMinuteList);
+        } else if (interval.equals("quarter")) {
             List<PerformanceVendorBundleQuarter> performanceVendorBundleQuarterList = performanceVendorBundleQuarterRepository.findDetailByClientPortInAndVendorPortInAndTimeBetween(clientPortIdList, vendorPortIdList, start, end);
             performanceVendorBundleList.addAll(performanceVendorBundleQuarterList);
         } else if (interval.equals("hour")) {
@@ -1143,6 +1219,10 @@ public class PerformanceService {
         Calendar calendar = Calendar.getInstance(tz);
         SimpleDateFormat dfDatTag = new SimpleDateFormat("yyyy-MM-dd");
         SimpleDateFormat dfDate = new SimpleDateFormat("yyyy-MM-dd");
+        if (interval.equals("minute")) {
+            dfDatTag = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+            dfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+        }
         if (interval.equals("quarter")) {
             dfDatTag = new SimpleDateFormat("yyyy-MM-dd HH:mm");
             dfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm");
@@ -1473,6 +1553,10 @@ public class PerformanceService {
         TimeZone tz = TimeZone.getTimeZone(timezone);
         SimpleDateFormat dfDateTag = new SimpleDateFormat("yyyy-MM-dd");
         SimpleDateFormat dfDate = new SimpleDateFormat("yyyy-MM-dd");
+        if (interval.equals("minute")) {
+            dfDateTag = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+            dfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+        }
         if (interval.equals("quarter")) {
             dfDateTag = new SimpleDateFormat("yyyy-MM-dd HH:mm");
             dfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm");
@@ -1791,6 +1875,9 @@ public class PerformanceService {
     public PerformanceView convertClientToView(PerformanceClient performanceClient, String interval, String timezone) {
         TimeZone tz = TimeZone.getTimeZone(timezone);
         SimpleDateFormat dfDate = new SimpleDateFormat("yyyy-MM-dd");
+        if (interval.equals("minute")) {
+            dfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+        }
         if (interval.equals("quarter")) {
             dfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm");
         }
@@ -1838,6 +1925,9 @@ public class PerformanceService {
     public PerformanceView convertVendorToView(PerformanceVendor performanceVendor, String interval, String timezone) {
         TimeZone tz = TimeZone.getTimeZone(timezone);
         SimpleDateFormat dfDate = new SimpleDateFormat("yyyy-MM-dd");
+        if (interval.equals("minute")) {
+            dfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+        }
         if (interval.equals("quarter")) {
             dfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm");
         }
