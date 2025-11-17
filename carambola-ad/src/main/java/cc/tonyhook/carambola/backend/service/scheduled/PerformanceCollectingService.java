@@ -428,6 +428,9 @@ public class PerformanceCollectingService {
             if (finance.getOutcomeDownstream() != 0) {
                 existedFinanceMap.put(key + "D", finance);
             }
+            if (finance.getOffer() != 0) {
+                existedFinanceMap.put(key + "O", finance);
+            }
         }
 
         List<FinanceBundle> existedFinanceBundleList = performanceService.getFinanceBundleList(from_finance, to_finance);
@@ -447,6 +450,9 @@ public class PerformanceCollectingService {
             }
             if (financeBundle.getOutcomeDownstream() != 0) {
                 existedFinanceBundleMap.put(key + "D", financeBundle);
+            }
+            if (financeBundle.getOffer() != 0) {
+                existedFinanceBundleMap.put(key + "O", financeBundle);
             }
         }
 
@@ -638,6 +644,9 @@ public class PerformanceCollectingService {
                                 if (type.equals("D")) {
                                     finance.setOutcomeDownstream(finance.getOutcomeDownstream() + value);
                                 }
+                                if (type.equals("O")) {
+                                    finance.setOffer(finance.getOffer() + value);
+                                }
                             }
                         }
 
@@ -662,6 +671,9 @@ public class PerformanceCollectingService {
                                 }
                                 if (type.equals("D")) {
                                     financeBundle.setOutcomeDownstream(financeBundle.getOutcomeDownstream() + value);
+                                }
+                                if (type.equals("O")) {
+                                    financeBundle.setOffer(financeBundle.getOffer() + value);
                                 }
                             }
                         }
@@ -1457,6 +1469,7 @@ public class PerformanceCollectingService {
             performanceClientMinute.setOutcomeUpstream(performanceClientMinute.getOutcomeUpstream() + (finance.getOutcomeUpstream() == null ? 0 : finance.getOutcomeUpstream()));
             performanceClientMinute.setOutcomeRebate(performanceClientMinute.getOutcomeRebate() + (finance.getOutcomeRebate() == null ? 0 : finance.getOutcomeRebate()));
             performanceClientMinute.setOutcomeDownstream(performanceClientMinute.getOutcomeDownstream() + finance.getOutcomeDownstream());
+            performanceClientMinute.setOffer(performanceClientMinute.getOffer() + (finance.getOffer() == null ? 0 : finance.getOffer()));
 
             String keyClientQuarter = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + finance.getClientPort() + "|" + finance.getVendorPort();
             if (!performanceClientQuarterMap.containsKey(keyClientQuarter)) {
@@ -1468,6 +1481,7 @@ public class PerformanceCollectingService {
             performanceClientQuarter.setOutcomeUpstream(performanceClientQuarter.getOutcomeUpstream() + (finance.getOutcomeUpstream() == null ? 0 : finance.getOutcomeUpstream()));
             performanceClientQuarter.setOutcomeRebate(performanceClientQuarter.getOutcomeRebate() + (finance.getOutcomeRebate() == null ? 0 : finance.getOutcomeRebate()));
             performanceClientQuarter.setOutcomeDownstream(performanceClientQuarter.getOutcomeDownstream() + finance.getOutcomeDownstream());
+            performanceClientQuarter.setOffer(performanceClientQuarter.getOffer() + (finance.getOffer() == null ? 0 : finance.getOffer()));
 
             String keyClientHour = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeHour) + "|" + finance.getClientPort() + "|" + finance.getVendorPort();
             if (!performanceClientHourMap.containsKey(keyClientHour)) {
@@ -1479,6 +1493,7 @@ public class PerformanceCollectingService {
             performanceClientHour.setOutcomeUpstream(performanceClientHour.getOutcomeUpstream() + (finance.getOutcomeUpstream() == null ? 0 : finance.getOutcomeUpstream()));
             performanceClientHour.setOutcomeRebate(performanceClientHour.getOutcomeRebate() + (finance.getOutcomeRebate() == null ? 0 : finance.getOutcomeRebate()));
             performanceClientHour.setOutcomeDownstream(performanceClientHour.getOutcomeDownstream() + finance.getOutcomeDownstream());
+            performanceClientHour.setOffer(performanceClientHour.getOffer() + (finance.getOffer() == null ? 0 : finance.getOffer()));
 
             String keyClientDay = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeDay) + "|" + finance.getClientPort() + "|" + finance.getVendorPort();
             if (!performanceClientDayMap.containsKey(keyClientDay)) {
@@ -1490,6 +1505,7 @@ public class PerformanceCollectingService {
             performanceClientDay.setOutcomeUpstream(performanceClientDay.getOutcomeUpstream() + (finance.getOutcomeUpstream() == null ? 0 : finance.getOutcomeUpstream()));
             performanceClientDay.setOutcomeRebate(performanceClientDay.getOutcomeRebate() + (finance.getOutcomeRebate() == null ? 0 : finance.getOutcomeRebate()));
             performanceClientDay.setOutcomeDownstream(performanceClientDay.getOutcomeDownstream() + finance.getOutcomeDownstream());
+            performanceClientDay.setOffer(performanceClientDay.getOffer() + (finance.getOffer() == null ? 0 : finance.getOffer()));
 
             String keyVendorMinute = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + finance.getClientPort() + "|" + finance.getVendorPort();
             if (!performanceVendorMinuteMap.containsKey(keyVendorMinute)) {
@@ -1545,6 +1561,7 @@ public class PerformanceCollectingService {
             performanceClientMinute0.setOutcomeUpstream(performanceClientMinute0.getOutcomeUpstream() + (finance.getOutcomeUpstream() == null ? 0 : finance.getOutcomeUpstream()));
             performanceClientMinute0.setOutcomeRebate(performanceClientMinute0.getOutcomeRebate() + (finance.getOutcomeRebate() == null ? 0 : finance.getOutcomeRebate()));
             performanceClientMinute0.setOutcomeDownstream(performanceClientMinute0.getOutcomeDownstream() + finance.getOutcomeDownstream());
+            performanceClientMinute0.setOffer(performanceClientMinute0.getOffer() + (finance.getOffer() == null ? 0 : finance.getOffer()));
 
             String keyClientQuarter0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + finance.getClientPort();
             if (!performanceClientQuarterMap.containsKey(keyClientQuarter0)) {
@@ -1556,6 +1573,7 @@ public class PerformanceCollectingService {
             performanceClientQuarter0.setOutcomeUpstream(performanceClientQuarter0.getOutcomeUpstream() + (finance.getOutcomeUpstream() == null ? 0 : finance.getOutcomeUpstream()));
             performanceClientQuarter0.setOutcomeRebate(performanceClientQuarter0.getOutcomeRebate() + (finance.getOutcomeRebate() == null ? 0 : finance.getOutcomeRebate()));
             performanceClientQuarter0.setOutcomeDownstream(performanceClientQuarter0.getOutcomeDownstream() + finance.getOutcomeDownstream());
+            performanceClientQuarter0.setOffer(performanceClientQuarter0.getOffer() + (finance.getOffer() == null ? 0 : finance.getOffer()));
 
             String keyClientHour0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeHour) + "|" + finance.getClientPort();
             if (!performanceClientHourMap.containsKey(keyClientHour0)) {
@@ -1567,6 +1585,7 @@ public class PerformanceCollectingService {
             performanceClientHour0.setOutcomeUpstream(performanceClientHour0.getOutcomeUpstream() + (finance.getOutcomeUpstream() == null ? 0 : finance.getOutcomeUpstream()));
             performanceClientHour0.setOutcomeRebate(performanceClientHour0.getOutcomeRebate() + (finance.getOutcomeRebate() == null ? 0 : finance.getOutcomeRebate()));
             performanceClientHour0.setOutcomeDownstream(performanceClientHour0.getOutcomeDownstream() + finance.getOutcomeDownstream());
+            performanceClientHour0.setOffer(performanceClientHour0.getOffer() + (finance.getOffer() == null ? 0 : finance.getOffer()));
 
             String keyClientDay0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeDay) + "|" + finance.getClientPort();
             if (!performanceClientDayMap.containsKey(keyClientDay0)) {
@@ -1578,6 +1597,7 @@ public class PerformanceCollectingService {
             performanceClientDay0.setOutcomeUpstream(performanceClientDay0.getOutcomeUpstream() + (finance.getOutcomeUpstream() == null ? 0 : finance.getOutcomeUpstream()));
             performanceClientDay0.setOutcomeRebate(performanceClientDay0.getOutcomeRebate() + (finance.getOutcomeRebate() == null ? 0 : finance.getOutcomeRebate()));
             performanceClientDay0.setOutcomeDownstream(performanceClientDay0.getOutcomeDownstream() + finance.getOutcomeDownstream());
+            performanceClientDay0.setOffer(performanceClientDay0.getOffer() + (finance.getOffer() == null ? 0 : finance.getOffer()));
 
             String keyVendorMinute0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + finance.getVendorPort();
             if (!performanceVendorMinuteMap.containsKey(keyVendorMinute0)) {
@@ -2374,6 +2394,7 @@ public class PerformanceCollectingService {
             performanceClientBundleMinute.setOutcomeUpstream(performanceClientBundleMinute.getOutcomeUpstream() + (financeBundle.getOutcomeUpstream() == null ? 0 : financeBundle.getOutcomeUpstream()));
             performanceClientBundleMinute.setOutcomeRebate(performanceClientBundleMinute.getOutcomeRebate() + (financeBundle.getOutcomeRebate() == null ? 0 : financeBundle.getOutcomeRebate()));
             performanceClientBundleMinute.setOutcomeDownstream(performanceClientBundleMinute.getOutcomeDownstream() + financeBundle.getOutcomeDownstream());
+            performanceClientBundleMinute.setOffer(performanceClientBundleMinute.getOffer() + (financeBundle.getOffer() == null ? 0 : financeBundle.getOffer()));
 
             String keyClientQuarter = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + financeBundle.getClientPort() + "|" + financeBundle.getVendorPort() + "|" + financeBundle.getBundle();
             if (!performanceClientBundleQuarterMap.containsKey(keyClientQuarter)) {
@@ -2385,6 +2406,7 @@ public class PerformanceCollectingService {
             performanceClientBundleQuarter.setOutcomeUpstream(performanceClientBundleQuarter.getOutcomeUpstream() + (financeBundle.getOutcomeUpstream() == null ? 0 : financeBundle.getOutcomeUpstream()));
             performanceClientBundleQuarter.setOutcomeRebate(performanceClientBundleQuarter.getOutcomeRebate() + (financeBundle.getOutcomeRebate() == null ? 0 : financeBundle.getOutcomeRebate()));
             performanceClientBundleQuarter.setOutcomeDownstream(performanceClientBundleQuarter.getOutcomeDownstream() + financeBundle.getOutcomeDownstream());
+            performanceClientBundleQuarter.setOffer(performanceClientBundleQuarter.getOffer() + (financeBundle.getOffer() == null ? 0 : financeBundle.getOffer()));
 
             String keyClientHour = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeHour) + "|" + financeBundle.getClientPort() + "|" + financeBundle.getVendorPort() + "|" + financeBundle.getBundle();
             if (!performanceClientBundleHourMap.containsKey(keyClientHour)) {
@@ -2396,6 +2418,7 @@ public class PerformanceCollectingService {
             performanceClientBundleHour.setOutcomeUpstream(performanceClientBundleHour.getOutcomeUpstream() + (financeBundle.getOutcomeUpstream() == null ? 0 : financeBundle.getOutcomeUpstream()));
             performanceClientBundleHour.setOutcomeRebate(performanceClientBundleHour.getOutcomeRebate() + (financeBundle.getOutcomeRebate() == null ? 0 : financeBundle.getOutcomeRebate()));
             performanceClientBundleHour.setOutcomeDownstream(performanceClientBundleHour.getOutcomeDownstream() + financeBundle.getOutcomeDownstream());
+            performanceClientBundleHour.setOffer(performanceClientBundleHour.getOffer() + (financeBundle.getOffer() == null ? 0 : financeBundle.getOffer()));
 
             String keyClientDay = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeDay) + "|" + financeBundle.getClientPort() + "|" + financeBundle.getVendorPort() + "|" + financeBundle.getBundle();
             if (!performanceClientBundleDayMap.containsKey(keyClientDay)) {
@@ -2407,6 +2430,7 @@ public class PerformanceCollectingService {
             performanceClientBundleDay.setOutcomeUpstream(performanceClientBundleDay.getOutcomeUpstream() + (financeBundle.getOutcomeUpstream() == null ? 0 : financeBundle.getOutcomeUpstream()));
             performanceClientBundleDay.setOutcomeRebate(performanceClientBundleDay.getOutcomeRebate() + (financeBundle.getOutcomeRebate() == null ? 0 : financeBundle.getOutcomeRebate()));
             performanceClientBundleDay.setOutcomeDownstream(performanceClientBundleDay.getOutcomeDownstream() + financeBundle.getOutcomeDownstream());
+            performanceClientBundleDay.setOffer(performanceClientBundleDay.getOffer() + (financeBundle.getOffer() == null ? 0 : financeBundle.getOffer()));
 
             String keyVendorMinute = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + financeBundle.getClientPort() + "|" + financeBundle.getVendorPort() + "|" + financeBundle.getBundle();
             if (!performanceVendorBundleMinuteMap.containsKey(keyVendorMinute)) {
@@ -2462,6 +2486,7 @@ public class PerformanceCollectingService {
             performanceClientBundleMinute0.setOutcomeUpstream(performanceClientBundleMinute0.getOutcomeUpstream() + (financeBundle.getOutcomeUpstream() == null ? 0 : financeBundle.getOutcomeUpstream()));
             performanceClientBundleMinute0.setOutcomeRebate(performanceClientBundleMinute0.getOutcomeRebate() + (financeBundle.getOutcomeRebate() == null ? 0 : financeBundle.getOutcomeRebate()));
             performanceClientBundleMinute0.setOutcomeDownstream(performanceClientBundleMinute0.getOutcomeDownstream() + financeBundle.getOutcomeDownstream());
+            performanceClientBundleMinute0.setOffer(performanceClientBundleMinute0.getOffer() + (financeBundle.getOffer() == null ? 0 : financeBundle.getOffer()));
 
             String keyClientQuarter0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeQuarter) + "|" + financeBundle.getClientPort() + "|" + financeBundle.getBundle();
             if (!performanceClientBundleQuarterMap.containsKey(keyClientQuarter0)) {
@@ -2473,6 +2498,7 @@ public class PerformanceCollectingService {
             performanceClientBundleQuarter0.setOutcomeUpstream(performanceClientBundleQuarter0.getOutcomeUpstream() + (financeBundle.getOutcomeUpstream() == null ? 0 : financeBundle.getOutcomeUpstream()));
             performanceClientBundleQuarter0.setOutcomeRebate(performanceClientBundleQuarter0.getOutcomeRebate() + (financeBundle.getOutcomeRebate() == null ? 0 : financeBundle.getOutcomeRebate()));
             performanceClientBundleQuarter0.setOutcomeDownstream(performanceClientBundleQuarter0.getOutcomeDownstream() + financeBundle.getOutcomeDownstream());
+            performanceClientBundleQuarter0.setOffer(performanceClientBundleQuarter0.getOffer() + (financeBundle.getOffer() == null ? 0 : financeBundle.getOffer()));
 
             String keyClientHour0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeHour) + "|" + financeBundle.getClientPort() + "|" + financeBundle.getBundle();
             if (!performanceClientBundleHourMap.containsKey(keyClientHour0)) {
@@ -2484,6 +2510,7 @@ public class PerformanceCollectingService {
             performanceClientBundleHour0.setOutcomeUpstream(performanceClientBundleHour0.getOutcomeUpstream() + (financeBundle.getOutcomeUpstream() == null ? 0 : financeBundle.getOutcomeUpstream()));
             performanceClientBundleHour0.setOutcomeRebate(performanceClientBundleHour0.getOutcomeRebate() + (financeBundle.getOutcomeRebate() == null ? 0 : financeBundle.getOutcomeRebate()));
             performanceClientBundleHour0.setOutcomeDownstream(performanceClientBundleHour0.getOutcomeDownstream() + financeBundle.getOutcomeDownstream());
+            performanceClientBundleHour0.setOffer(performanceClientBundleHour0.getOffer() + (financeBundle.getOffer() == null ? 0 : financeBundle.getOffer()));
 
             String keyClientDay0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeDay) + "|" + financeBundle.getClientPort() + "|" + financeBundle.getBundle();
             if (!performanceClientBundleDayMap.containsKey(keyClientDay0)) {
@@ -2495,6 +2522,7 @@ public class PerformanceCollectingService {
             performanceClientBundleDay0.setOutcomeUpstream(performanceClientBundleDay0.getOutcomeUpstream() + (financeBundle.getOutcomeUpstream() == null ? 0 : financeBundle.getOutcomeUpstream()));
             performanceClientBundleDay0.setOutcomeRebate(performanceClientBundleDay0.getOutcomeRebate() + (financeBundle.getOutcomeRebate() == null ? 0 : financeBundle.getOutcomeRebate()));
             performanceClientBundleDay0.setOutcomeDownstream(performanceClientBundleDay0.getOutcomeDownstream() + financeBundle.getOutcomeDownstream());
+            performanceClientBundleDay0.setOffer(performanceClientBundleDay0.getOffer() + (financeBundle.getOffer() == null ? 0 : financeBundle.getOffer()));
 
             String keyVendorMinute0 = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + financeBundle.getVendorPort() + "|" + financeBundle.getBundle();
             if (!performanceVendorBundleMinuteMap.containsKey(keyVendorMinute0)) {

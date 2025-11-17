@@ -62,6 +62,8 @@ public class PerformanceClient {
 
     protected Long outcomeDownstream;
 
+    protected Long offer;
+
     public PerformanceClient() {
         super();
     }
@@ -91,6 +93,7 @@ public class PerformanceClient {
         this.outcomeUpstream = 0L;
         this.outcomeRebate = 0L;
         this.outcomeDownstream = 0L;
+        this.offer = 0L;
     }
 
     public Integer getId() {
@@ -291,6 +294,14 @@ public class PerformanceClient {
 
     public void setOutcomeDownstream(Long outcomeDownstream) {
         this.outcomeDownstream = outcomeDownstream;
+    }
+
+    public Long getOffer() {
+        return this.offer;
+    }
+
+    public void setOffer(Long offer) {
+        this.offer = offer;
     }
 
 }

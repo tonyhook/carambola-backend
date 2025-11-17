@@ -420,7 +420,7 @@ public class PerformanceService {
         for (Finance finance : newFinanceList) {
             finance_calendar.setTimeInMillis(finance.getTime().getTime());
             String key = "LF:" + finance.getTime().getTime() + "|" + finance.getClientPort() + "|" + finance.getVendorPort() + "|" + finance.getNode();
-            String amount = finance.getIncome().toString()+ "|" + finance.getOutcomeUpstream().toString() + "|" + finance.getOutcomeRebate().toString() + "|" + finance.getOutcomeDownstream().toString();
+            String amount = finance.getIncome().toString()+ "|" + finance.getOutcomeUpstream().toString() + "|" + finance.getOutcomeRebate().toString() + "|" + finance.getOutcomeDownstream().toString() + "|" + finance.getOffer().toString();
             financeData.put(key, amount);
         }
 
@@ -436,7 +436,7 @@ public class PerformanceService {
         for (FinanceBundle financeBundle : newFinanceBundleList) {
             finance_calendar.setTimeInMillis(financeBundle.getTime().getTime());
             String key = "LFB:" + financeBundle.getTime().getTime() + "|" + financeBundle.getClientPort() + "|" + financeBundle.getVendorPort() + "|" + financeBundle.getBundle() + "|" + financeBundle.getNode();
-            String amount = financeBundle.getIncome().toString()+ "|" + financeBundle.getOutcomeUpstream().toString() + "|" + financeBundle.getOutcomeRebate().toString() + "|" + financeBundle.getOutcomeDownstream().toString();
+            String amount = financeBundle.getIncome().toString()+ "|" + financeBundle.getOutcomeUpstream().toString() + "|" + financeBundle.getOutcomeRebate().toString() + "|" + financeBundle.getOutcomeDownstream().toString() + "|" + financeBundle.getOffer().toString();
             financeBundleData.put(key, amount);
         }
 
@@ -484,6 +484,9 @@ public class PerformanceService {
                     redisFinance.setOutcomeUpstream(Long.valueOf(amounts[1]));
                     redisFinance.setOutcomeRebate(Long.valueOf(amounts[2]));
                     redisFinance.setOutcomeDownstream(Long.valueOf(amounts[3]));
+                    if (amounts.length > 4) {
+                        redisFinance.setOffer(Long.valueOf(amounts[4]));
+                    }
                     financeList.add(redisFinance);
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -533,6 +536,9 @@ public class PerformanceService {
                     redisFinanceBundle.setOutcomeUpstream(Long.valueOf(amounts[1]));
                     redisFinanceBundle.setOutcomeRebate(Long.valueOf(amounts[2]));
                     redisFinanceBundle.setOutcomeDownstream(Long.valueOf(amounts[3]));
+                    if (amounts.length > 4) {
+                        redisFinanceBundle.setOffer(Long.valueOf(amounts[4]));
+                    }
                     financeBundleList.add(redisFinanceBundle);
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -1918,6 +1924,7 @@ public class PerformanceService {
         performanceView.setOutcomeUpstream(performanceClient.getOutcomeUpstream());
         performanceView.setOutcomeRebate(performanceClient.getOutcomeRebate());
         performanceView.setOutcomeDownstream(performanceClient.getOutcomeDownstream());
+        performanceView.setOffer(performanceClient.getOffer());
 
         return performanceView;
     }

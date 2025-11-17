@@ -20,6 +20,8 @@ public class Finance {
 
     private Long outcomeDownstream;
 
+    private Long offer;
+
     public Finance() {
     }
 
@@ -32,6 +34,7 @@ public class Finance {
         this.outcomeUpstream = 0L;
         this.outcomeRebate = 0L;
         this.outcomeDownstream = 0L;
+        this.offer = 0L;
     }
 
     public Integer getClientPort() {
@@ -96,6 +99,14 @@ public class Finance {
 
     public void setOutcomeDownstream(Long outcomeDownstream) {
         this.outcomeDownstream = outcomeDownstream;
+    }
+
+    public Long getOffer() {
+        return this.offer;
+    }
+
+    public void setOffer(Long offer) {
+        this.offer = offer;
     }
 
 }
