@@ -42,6 +42,8 @@ public class PerformanceView {
 
     private Long outcomeDownstream;
 
+    private Long offer;
+
     public PerformanceView() {
         this.time = "";
         this.start = null;
@@ -62,6 +64,7 @@ public class PerformanceView {
         this.outcomeUpstream = 0L;
         this.outcomeRebate = 0L;
         this.outcomeDownstream = 0L;
+        this.offer = 0L;
     }
 
     public String getTime() {
@@ -214,6 +217,14 @@ public class PerformanceView {
 
     public void setOutcomeDownstream(Long outcomeDownstream) {
         this.outcomeDownstream = outcomeDownstream;
+    }
+
+    public Long getOffer() {
+        return this.offer;
+    }
+
+    public void setOffer(Long offer) {
+        this.offer = offer;
     }
 
 }
