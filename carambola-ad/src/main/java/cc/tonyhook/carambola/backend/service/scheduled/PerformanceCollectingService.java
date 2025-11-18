@@ -557,7 +557,7 @@ public class PerformanceCollectingService {
                                 event = Performance.TRACKING_CLICK;
                                 break;
                             default:
-                                event = Performance.TRACKING_GENERAL;
+                                event = Performance.TRACKING_GENERAL + eventCode;
                                 break;
                         }
 
@@ -1253,7 +1253,7 @@ public class PerformanceCollectingService {
                     default: break;
                 }
             }
-            if ("ab".indexOf(performance.getEvent().charAt(0)) >= 0) {
+            if ("abz".indexOf(performance.getEvent().charAt(0)) >= 0) {
                 String keyClientMinute = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + performance.getClientPort() + "|" + performance.getVendorPort();
                 if (!performanceClientMinuteMap.containsKey(keyClientMinute)) {
                     PerformanceClientMinute performanceClientMinute = new PerformanceClientMinute(performance.getClientPort(), performance.getVendorPort(), Timestamp.from(timeMinute.toInstant()));
@@ -1263,6 +1263,22 @@ public class PerformanceCollectingService {
                 switch (performance.getEvent().substring(0, 1)) {
                     case "a": performanceClientMinute.setImpression(performanceClientMinute.getImpression() + performance.getAmount());break;
                     case "b": performanceClientMinute.setClick(performanceClientMinute.getClick() + performance.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceClientMinute.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceClientMinute.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performance.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performance.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -1275,6 +1291,22 @@ public class PerformanceCollectingService {
                 switch (performance.getEvent().substring(0, 1)) {
                     case "a": performanceClientQuarter.setImpression(performanceClientQuarter.getImpression() + performance.getAmount());break;
                     case "b": performanceClientQuarter.setClick(performanceClientQuarter.getClick() + performance.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceClientQuarter.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceClientQuarter.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performance.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performance.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -1287,6 +1319,22 @@ public class PerformanceCollectingService {
                 switch (performance.getEvent().substring(0, 1)) {
                     case "a": performanceClientHour.setImpression(performanceClientHour.getImpression() + performance.getAmount());break;
                     case "b": performanceClientHour.setClick(performanceClientHour.getClick() + performance.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceClientHour.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceClientHour.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performance.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performance.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -1299,6 +1347,22 @@ public class PerformanceCollectingService {
                 switch (performance.getEvent().substring(0, 1)) {
                     case "a": performanceClientDay.setImpression(performanceClientDay.getImpression() + performance.getAmount());break;
                     case "b": performanceClientDay.setClick(performanceClientDay.getClick() + performance.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceClientDay.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceClientDay.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performance.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performance.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -1311,6 +1375,22 @@ public class PerformanceCollectingService {
                 switch (performance.getEvent().substring(0, 1)) {
                     case "a": performanceVendorMinute.setImpression(performanceVendorMinute.getImpression() + performance.getAmount());break;
                     case "b": performanceVendorMinute.setClick(performanceVendorMinute.getClick() + performance.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceVendorMinute.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceVendorMinute.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performance.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performance.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -1323,6 +1403,22 @@ public class PerformanceCollectingService {
                 switch (performance.getEvent().substring(0, 1)) {
                     case "a": performanceVendorQuarter.setImpression(performanceVendorQuarter.getImpression() + performance.getAmount());break;
                     case "b": performanceVendorQuarter.setClick(performanceVendorQuarter.getClick() + performance.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceVendorQuarter.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceVendorQuarter.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performance.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performance.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -1335,6 +1431,22 @@ public class PerformanceCollectingService {
                 switch (performance.getEvent().substring(0, 1)) {
                     case "a": performanceVendorHour.setImpression(performanceVendorHour.getImpression() + performance.getAmount());break;
                     case "b": performanceVendorHour.setClick(performanceVendorHour.getClick() + performance.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceVendorHour.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceVendorHour.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performance.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performance.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -1347,6 +1459,22 @@ public class PerformanceCollectingService {
                 switch (performance.getEvent().substring(0, 1)) {
                     case "a": performanceVendorDay.setImpression(performanceVendorDay.getImpression() + performance.getAmount());break;
                     case "b": performanceVendorDay.setClick(performanceVendorDay.getClick() + performance.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceVendorDay.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceVendorDay.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performance.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performance.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -1359,6 +1487,22 @@ public class PerformanceCollectingService {
                 switch (performance.getEvent().substring(0, 1)) {
                     case "a": performanceClientMinute0.setImpression(performanceClientMinute0.getImpression() + performance.getAmount());break;
                     case "b": performanceClientMinute0.setClick(performanceClientMinute0.getClick() + performance.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceClientMinute0.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceClientMinute0.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performance.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performance.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -1371,6 +1515,22 @@ public class PerformanceCollectingService {
                 switch (performance.getEvent().substring(0, 1)) {
                     case "a": performanceClientQuarter0.setImpression(performanceClientQuarter0.getImpression() + performance.getAmount());break;
                     case "b": performanceClientQuarter0.setClick(performanceClientQuarter0.getClick() + performance.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceClientQuarter0.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceClientQuarter0.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performance.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performance.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -1383,6 +1543,22 @@ public class PerformanceCollectingService {
                 switch (performance.getEvent().substring(0, 1)) {
                     case "a": performanceClientHour0.setImpression(performanceClientHour0.getImpression() + performance.getAmount());break;
                     case "b": performanceClientHour0.setClick(performanceClientHour0.getClick() + performance.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceClientHour0.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceClientHour0.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performance.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performance.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -1395,6 +1571,22 @@ public class PerformanceCollectingService {
                 switch (performance.getEvent().substring(0, 1)) {
                     case "a": performanceClientDay0.setImpression(performanceClientDay0.getImpression() + performance.getAmount());break;
                     case "b": performanceClientDay0.setClick(performanceClientDay0.getClick() + performance.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceClientDay0.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceClientDay0.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performance.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performance.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -1407,6 +1599,22 @@ public class PerformanceCollectingService {
                 switch (performance.getEvent().substring(0, 1)) {
                     case "a": performanceVendorMinute0.setImpression(performanceVendorMinute0.getImpression() + performance.getAmount());break;
                     case "b": performanceVendorMinute0.setClick(performanceVendorMinute0.getClick() + performance.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceVendorMinute0.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceVendorMinute0.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performance.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performance.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -1419,6 +1627,22 @@ public class PerformanceCollectingService {
                 switch (performance.getEvent().substring(0, 1)) {
                     case "a": performanceVendorQuarter0.setImpression(performanceVendorQuarter0.getImpression() + performance.getAmount());break;
                     case "b": performanceVendorQuarter0.setClick(performanceVendorQuarter0.getClick() + performance.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceVendorQuarter0.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceVendorQuarter0.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performance.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performance.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -1431,6 +1655,22 @@ public class PerformanceCollectingService {
                 switch (performance.getEvent().substring(0, 1)) {
                     case "a": performanceVendorHour0.setImpression(performanceVendorHour0.getImpression() + performance.getAmount());break;
                     case "b": performanceVendorHour0.setClick(performanceVendorHour0.getClick() + performance.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceVendorHour0.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceVendorHour0.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performance.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performance.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -1443,6 +1683,22 @@ public class PerformanceCollectingService {
                 switch (performance.getEvent().substring(0, 1)) {
                     case "a": performanceVendorDay0.setImpression(performanceVendorDay0.getImpression() + performance.getAmount());break;
                     case "b": performanceVendorDay0.setClick(performanceVendorDay0.getClick() + performance.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceVendorDay0.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceVendorDay0.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performance.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performance.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
             }
@@ -2178,7 +2434,7 @@ public class PerformanceCollectingService {
                     default: break;
                 }
             }
-            if ("ab".indexOf(performanceBundle.getEvent().charAt(0)) >= 0) {
+            if ("abz".indexOf(performanceBundle.getEvent().charAt(0)) >= 0) {
                 String keyClientMinute = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(timeMinute) + "|" + performanceBundle.getClientPort() + "|" + performanceBundle.getVendorPort() + "|" + performanceBundle.getBundle();
                 if (!performanceClientBundleMinuteMap.containsKey(keyClientMinute)) {
                     PerformanceClientBundleMinute performanceClientBundleMinute = new PerformanceClientBundleMinute(performanceBundle.getClientPort(), performanceBundle.getVendorPort(), performanceBundle.getBundle(), Timestamp.from(timeMinute.toInstant()));
@@ -2188,6 +2444,22 @@ public class PerformanceCollectingService {
                 switch (performanceBundle.getEvent().substring(0, 1)) {
                     case "a": performanceClientBundleMinute.setImpression(performanceClientBundleMinute.getImpression() + performanceBundle.getAmount());break;
                     case "b": performanceClientBundleMinute.setClick(performanceClientBundleMinute.getClick() + performanceBundle.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceClientBundleMinute.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceClientBundleMinute.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performanceBundle.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performanceBundle.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -2200,6 +2472,22 @@ public class PerformanceCollectingService {
                 switch (performanceBundle.getEvent().substring(0, 1)) {
                     case "a": performanceClientBundleQuarter.setImpression(performanceClientBundleQuarter.getImpression() + performanceBundle.getAmount());break;
                     case "b": performanceClientBundleQuarter.setClick(performanceClientBundleQuarter.getClick() + performanceBundle.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceClientBundleQuarter.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceClientBundleQuarter.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performanceBundle.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performanceBundle.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -2212,6 +2500,22 @@ public class PerformanceCollectingService {
                 switch (performanceBundle.getEvent().substring(0, 1)) {
                     case "a": performanceClientBundleHour.setImpression(performanceClientBundleHour.getImpression() + performanceBundle.getAmount());break;
                     case "b": performanceClientBundleHour.setClick(performanceClientBundleHour.getClick() + performanceBundle.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceClientBundleHour.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceClientBundleHour.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performanceBundle.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performanceBundle.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -2224,6 +2528,22 @@ public class PerformanceCollectingService {
                 switch (performanceBundle.getEvent().substring(0, 1)) {
                     case "a": performanceClientBundleDay.setImpression(performanceClientBundleDay.getImpression() + performanceBundle.getAmount());break;
                     case "b": performanceClientBundleDay.setClick(performanceClientBundleDay.getClick() + performanceBundle.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceClientBundleDay.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceClientBundleDay.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performanceBundle.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performanceBundle.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -2236,6 +2556,22 @@ public class PerformanceCollectingService {
                 switch (performanceBundle.getEvent().substring(0, 1)) {
                     case "a": performanceVendorBundleMinute.setImpression(performanceVendorBundleMinute.getImpression() + performanceBundle.getAmount());break;
                     case "b": performanceVendorBundleMinute.setClick(performanceVendorBundleMinute.getClick() + performanceBundle.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceVendorBundleMinute.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceVendorBundleMinute.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performanceBundle.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performanceBundle.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -2248,6 +2584,22 @@ public class PerformanceCollectingService {
                 switch (performanceBundle.getEvent().substring(0, 1)) {
                     case "a": performanceVendorBundleQuarter.setImpression(performanceVendorBundleQuarter.getImpression() + performanceBundle.getAmount());break;
                     case "b": performanceVendorBundleQuarter.setClick(performanceVendorBundleQuarter.getClick() + performanceBundle.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceVendorBundleQuarter.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceVendorBundleQuarter.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performanceBundle.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performanceBundle.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -2260,6 +2612,22 @@ public class PerformanceCollectingService {
                 switch (performanceBundle.getEvent().substring(0, 1)) {
                     case "a": performanceVendorBundleHour.setImpression(performanceVendorBundleHour.getImpression() + performanceBundle.getAmount());break;
                     case "b": performanceVendorBundleHour.setClick(performanceVendorBundleHour.getClick() + performanceBundle.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceVendorBundleHour.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceVendorBundleHour.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performanceBundle.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performanceBundle.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -2272,6 +2640,22 @@ public class PerformanceCollectingService {
                 switch (performanceBundle.getEvent().substring(0, 1)) {
                     case "a": performanceVendorBundleDay.setImpression(performanceVendorBundleDay.getImpression() + performanceBundle.getAmount());break;
                     case "b": performanceVendorBundleDay.setClick(performanceVendorBundleDay.getClick() + performanceBundle.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceVendorBundleDay.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceVendorBundleDay.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performanceBundle.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performanceBundle.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -2284,6 +2668,22 @@ public class PerformanceCollectingService {
                 switch (performanceBundle.getEvent().substring(0, 1)) {
                     case "a": performanceClientBundleMinute0.setImpression(performanceClientBundleMinute0.getImpression() + performanceBundle.getAmount());break;
                     case "b": performanceClientBundleMinute0.setClick(performanceClientBundleMinute0.getClick() + performanceBundle.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceClientBundleMinute0.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceClientBundleMinute0.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performanceBundle.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performanceBundle.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -2296,6 +2696,22 @@ public class PerformanceCollectingService {
                 switch (performanceBundle.getEvent().substring(0, 1)) {
                     case "a": performanceClientBundleQuarter0.setImpression(performanceClientBundleQuarter0.getImpression() + performanceBundle.getAmount());break;
                     case "b": performanceClientBundleQuarter0.setClick(performanceClientBundleQuarter0.getClick() + performanceBundle.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceClientBundleQuarter0.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceClientBundleQuarter0.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performanceBundle.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performanceBundle.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -2308,6 +2724,22 @@ public class PerformanceCollectingService {
                 switch (performanceBundle.getEvent().substring(0, 1)) {
                     case "a": performanceClientBundleHour0.setImpression(performanceClientBundleHour0.getImpression() + performanceBundle.getAmount());break;
                     case "b": performanceClientBundleHour0.setClick(performanceClientBundleHour0.getClick() + performanceBundle.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceClientBundleHour0.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceClientBundleHour0.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performanceBundle.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performanceBundle.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -2320,6 +2752,22 @@ public class PerformanceCollectingService {
                 switch (performanceBundle.getEvent().substring(0, 1)) {
                     case "a": performanceClientBundleDay0.setImpression(performanceClientBundleDay0.getImpression() + performanceBundle.getAmount());break;
                     case "b": performanceClientBundleDay0.setClick(performanceClientBundleDay0.getClick() + performanceBundle.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceClientBundleDay0.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceClientBundleDay0.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performanceBundle.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performanceBundle.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -2332,6 +2780,22 @@ public class PerformanceCollectingService {
                 switch (performanceBundle.getEvent().substring(0, 1)) {
                     case "a": performanceVendorBundleMinute0.setImpression(performanceVendorBundleMinute0.getImpression() + performanceBundle.getAmount());break;
                     case "b": performanceVendorBundleMinute0.setClick(performanceVendorBundleMinute0.getClick() + performanceBundle.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceVendorBundleMinute0.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceVendorBundleMinute0.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performanceBundle.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performanceBundle.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -2344,6 +2808,22 @@ public class PerformanceCollectingService {
                 switch (performanceBundle.getEvent().substring(0, 1)) {
                     case "a": performanceVendorBundleQuarter0.setImpression(performanceVendorBundleQuarter0.getImpression() + performanceBundle.getAmount());break;
                     case "b": performanceVendorBundleQuarter0.setClick(performanceVendorBundleQuarter0.getClick() + performanceBundle.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceVendorBundleQuarter0.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceVendorBundleQuarter0.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performanceBundle.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performanceBundle.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -2356,6 +2836,22 @@ public class PerformanceCollectingService {
                 switch (performanceBundle.getEvent().substring(0, 1)) {
                     case "a": performanceVendorBundleHour0.setImpression(performanceVendorBundleHour0.getImpression() + performanceBundle.getAmount());break;
                     case "b": performanceVendorBundleHour0.setClick(performanceVendorBundleHour0.getClick() + performanceBundle.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceVendorBundleHour0.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceVendorBundleHour0.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performanceBundle.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performanceBundle.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
 
@@ -2368,6 +2864,22 @@ public class PerformanceCollectingService {
                 switch (performanceBundle.getEvent().substring(0, 1)) {
                     case "a": performanceVendorBundleDay0.setImpression(performanceVendorBundleDay0.getImpression() + performanceBundle.getAmount());break;
                     case "b": performanceVendorBundleDay0.setClick(performanceVendorBundleDay0.getClick() + performanceBundle.getAmount());break;
+                    case "z": {
+                        Map<Integer, Long> general = performanceVendorBundleDay0.getGeneral();
+                        if (general == null) {
+                            general = new HashMap<Integer, Long>();
+                            performanceVendorBundleDay0.setGeneral(general);
+                        }
+                        try {
+                            Integer event = Integer.parseInt(performanceBundle.getEvent().substring(1));
+                            if (!general.containsKey(event)) {
+                                general.put(event, 0L);
+                            }
+                            general.put(event, general.get(event) + performanceBundle.getAmount());
+                        } catch (Exception e) {
+                        }
+                        break;
+                    }
                     default: break;
                 }
             }

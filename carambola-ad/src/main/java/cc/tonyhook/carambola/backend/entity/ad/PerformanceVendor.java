@@ -1,6 +1,11 @@
 package cc.tonyhook.carambola.backend.entity.ad;
 
 import java.sql.Timestamp;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -44,6 +49,9 @@ public class PerformanceVendor {
 
     protected Long click;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    protected Map<Integer, Long> general;
+
     protected Long income;
 
     protected Long outcomeUpstream;
@@ -72,6 +80,7 @@ public class PerformanceVendor {
         this.eventJ = 0L;
         this.impression = 0L;
         this.click = 0L;
+        this.general = new HashMap<Integer, Long>();
         this.income = 0L;
         this.outcomeUpstream = 0L;
         this.outcomeRebate = 0L;
@@ -204,6 +213,14 @@ public class PerformanceVendor {
 
     public void setClick(Long click) {
         this.click = click;
+    }
+
+    public Map<Integer, Long> getGeneral() {
+        return this.general;
+    }
+
+    public void setGeneral(Map<Integer, Long> general) {
+        this.general = general;
     }
 
     public Long getIncome() {
