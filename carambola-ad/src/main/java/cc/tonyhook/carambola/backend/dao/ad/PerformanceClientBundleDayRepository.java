@@ -24,5 +24,7 @@ public interface PerformanceClientBundleDayRepository extends JpaRepository<Perf
     List<PerformanceClientBundleDay> findDetailByClientPortInAndTimeBetween(List<Integer> clientPortIdList, Timestamp start, Timestamp end);
     @Query(value = "SELECT * FROM ad_performance_client_bundle_day WHERE client_port IN :clientPortIdList AND vendor_port IN :vendorPortIdList AND time BETWEEN :start AND :end AND vendor_port <> 0", nativeQuery = true)
     List<PerformanceClientBundleDay> findDetailByClientPortInAndVendorPortInAndTimeBetween(List<Integer> clientPortIdList, List<Integer> vendorPortIdList, Timestamp start, Timestamp end);
+    @Query(value = "SELECT * FROM ad_performance_client_bundle_day WHERE client_port IN :clientPortIdList AND vendor_port IN :vendorPortIdList AND bundle IN :bundleList AND time BETWEEN :start AND :end AND vendor_port <> 0", nativeQuery = true)
+    List<PerformanceClientBundleDay> findDetailByClientPortInAndVendorPortInAndBundleInAndTimeBetween(List<Integer> clientPortIdList, List<Integer> vendorPortIdList, List<String> bundleList, Timestamp start, Timestamp end);
 
 }
