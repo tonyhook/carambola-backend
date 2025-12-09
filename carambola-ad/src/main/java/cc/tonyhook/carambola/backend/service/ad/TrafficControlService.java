@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -159,7 +160,7 @@ public class TrafficControlService {
                     day,
                     updatedTrafficControl.getClientPort(),
                     updatedTrafficControl.getVendorPort(),
-                    StringUtils.replace(updatedTrafficControl.getBundle(), ":", "_"));
+                    Strings.CS.replace(updatedTrafficControl.getBundle(), ":", "_"));
                 Long value = 0L;
 
                 if (updatedTrafficControl.getClientPort() != -1 && updatedTrafficControl.getVendorPort() == -1) {
@@ -215,7 +216,7 @@ public class TrafficControlService {
                     hour,
                     updatedTrafficControl.getClientPort(),
                     updatedTrafficControl.getVendorPort(),
-                    StringUtils.replace(updatedTrafficControl.getBundle(), ":", "_"));
+                    Strings.CS.replace(updatedTrafficControl.getBundle(), ":", "_"));
                 Long value = 0L;
 
                 if (updatedTrafficControl.getClientPort() != -1 && updatedTrafficControl.getVendorPort() == -1) {
@@ -272,7 +273,7 @@ public class TrafficControlService {
                     day,
                     updatedTrafficControl.getClientPort(),
                     updatedTrafficControl.getVendorPort(),
-                    StringUtils.replace(updatedTrafficControl.getBundle(), ":", "_"));
+                    Strings.CS.replace(updatedTrafficControl.getBundle(), ":", "_"));
                 Long value = 0L;
 
                 if (updatedTrafficControl.getClientPort() != -1 && updatedTrafficControl.getVendorPort() == -1) {
@@ -324,7 +325,7 @@ public class TrafficControlService {
                     hour,
                     updatedTrafficControl.getClientPort(),
                     updatedTrafficControl.getVendorPort(),
-                    StringUtils.replace(updatedTrafficControl.getBundle(), ":", "_"));
+                    Strings.CS.replace(updatedTrafficControl.getBundle(), ":", "_"));
                 Long value = 0L;
 
                 if (updatedTrafficControl.getClientPort() != -1 && updatedTrafficControl.getVendorPort() == -1) {
@@ -389,7 +390,7 @@ public class TrafficControlService {
                     day,
                     updatedTrafficControl.getClientPort(),
                     updatedTrafficControl.getVendorPort(),
-                    StringUtils.replace(updatedTrafficControl.getBundle(), ":", "_"));
+                    Strings.CS.replace(updatedTrafficControl.getBundle(), ":", "_"));
                 Long value = 0L;
 
                 if (updatedTrafficControl.getClientPort() != -1 && updatedTrafficControl.getVendorPort() == -1) {
@@ -445,7 +446,7 @@ public class TrafficControlService {
                     hour,
                     updatedTrafficControl.getClientPort(),
                     updatedTrafficControl.getVendorPort(),
-                    StringUtils.replace(updatedTrafficControl.getBundle(), ":", "_"));
+                    Strings.CS.replace(updatedTrafficControl.getBundle(), ":", "_"));
                 Long value = 0L;
 
                 if (updatedTrafficControl.getClientPort() != -1 && updatedTrafficControl.getVendorPort() == -1) {
@@ -502,7 +503,7 @@ public class TrafficControlService {
                     day,
                     updatedTrafficControl.getClientPort(),
                     updatedTrafficControl.getVendorPort(),
-                    StringUtils.replace(updatedTrafficControl.getBundle(), ":", "_"));
+                    Strings.CS.replace(updatedTrafficControl.getBundle(), ":", "_"));
                 Long value = 0L;
 
                 if (updatedTrafficControl.getClientPort() != -1 && updatedTrafficControl.getVendorPort() == -1) {
@@ -554,7 +555,7 @@ public class TrafficControlService {
                     hour,
                     updatedTrafficControl.getClientPort(),
                     updatedTrafficControl.getVendorPort(),
-                    StringUtils.replace(updatedTrafficControl.getBundle(), ":", "_"));
+                    Strings.CS.replace(updatedTrafficControl.getBundle(), ":", "_"));
                 Long value = 0L;
 
                 if (updatedTrafficControl.getClientPort() != -1 && updatedTrafficControl.getVendorPort() == -1) {
