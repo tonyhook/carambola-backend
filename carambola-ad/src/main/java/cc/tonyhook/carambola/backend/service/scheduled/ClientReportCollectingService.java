@@ -17,8 +17,8 @@ import java.util.TreeMap;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import cc.tonyhook.carambola.backend.entity.ad.Bill;
 import cc.tonyhook.carambola.backend.entity.ad.Client;
@@ -140,12 +140,12 @@ public class ClientReportCollectingService {
 
                         JsonNode resp = mapper.readTree(content.toString());
                         if (resp.get("code") != null) {
-                            String code = resp.get("code").asText();
+                            String code = resp.get("code").asString();
                             if (code.equals("200") && resp.get("data").isArray()) {
                                 for (JsonNode node : resp.get("data")) {
                                     Bill bill = new Bill();
                                     bill.setDate(new Timestamp(date.getTime()));
-                                    bill.setTagId(node.get("pos_id").asText());
+                                    bill.setTagId(node.get("pos_id").asString());
                                     bill.setImpression(node.get("view").asLong());
                                     bill.setClick(node.get("click").asLong());
                                     bill.setCost(Math.round(node.get("revenue").asDouble() * 100000));
@@ -228,12 +228,12 @@ public class ClientReportCollectingService {
 
                         JsonNode resp = mapper.readTree(content.toString());
                         if (resp.get("code") != null) {
-                            String code = resp.get("code").asText();
+                            String code = resp.get("code").asString();
                             if (code.equals("200") && resp.get("data").isArray()) {
                                 for (JsonNode node : resp.get("data")) {
                                     Bill bill = new Bill();
                                     bill.setDate(new Timestamp(date.getTime()));
-                                    bill.setTagId(node.get("monetizer_app_ad_unit_token").asText());
+                                    bill.setTagId(node.get("monetizer_app_ad_unit_token").asString());
                                     bill.setRequest(node.get("requests").asLong());
                                     bill.setImpression(node.get("impressions").asLong());
                                     bill.setClick(node.get("clicks").asLong());
