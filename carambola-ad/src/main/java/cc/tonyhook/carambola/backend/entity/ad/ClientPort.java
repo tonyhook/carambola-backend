@@ -50,10 +50,6 @@ public class ClientPort {
 
     private Integer mode;
 
-    private String ekey;
-
-    private String ikey;
-
     private String appname;
 
     private String apppackage;
@@ -146,22 +142,6 @@ public class ClientPort {
 
     public void setMode(Integer mode) {
         this.mode = mode;
-    }
-
-    public String getEkey() {
-        return this.ekey;
-    }
-
-    public void setEkey(String ekey) {
-        this.ekey = ekey;
-    }
-
-    public String getIkey() {
-        return this.ikey;
-    }
-
-    public void setIkey(String ikey) {
-        this.ikey = ikey;
     }
 
     public String getAppname() {
