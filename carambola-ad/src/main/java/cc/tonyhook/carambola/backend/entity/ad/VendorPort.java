@@ -46,6 +46,8 @@ public class VendorPort {
 
     private String format;
 
+    private String budget;
+
     private String tagId;
 
     private Integer mode;
@@ -118,6 +120,14 @@ public class VendorPort {
 
     public void setFormat(String format) {
         this.format = format;
+    }
+
+    public String getBudget() {
+        return this.budget;
+    }
+
+    public void setBudget(String budget) {
+        this.budget = budget;
     }
 
     public String getTagId() {
