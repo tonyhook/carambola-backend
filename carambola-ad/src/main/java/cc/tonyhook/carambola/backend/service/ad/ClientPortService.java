@@ -141,6 +141,18 @@ public class ClientPortService {
                         return true;
                     }
                 }
+                if (key.equals("budget")) {
+                    List<String> budgetList = query.filter.get(key);
+                    Boolean matched = false;
+                    for (String budget : budgetList) {
+                        if (clientPort.getBudget().toString().equals(budget.toLowerCase())) {
+                            matched = true;
+                        }
+                    }
+                    if (!matched) {
+                        return true;
+                    }
+                }
             }
 
             if (!StringUtils.isEmpty(query.searchValue)) {

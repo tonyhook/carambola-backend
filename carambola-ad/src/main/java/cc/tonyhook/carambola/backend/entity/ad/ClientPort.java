@@ -46,6 +46,8 @@ public class ClientPort {
 
     private String format;
 
+    private String budget;
+
     private String tagId;
 
     private Integer mode;
@@ -126,6 +128,14 @@ public class ClientPort {
 
     public void setFormat(String format) {
         this.format = format;
+    }
+
+    public String getBudget() {
+        return this.budget;
+    }
+
+    public void setBudget(String budget) {
+        this.budget = budget;
     }
 
     public String getTagId() {
