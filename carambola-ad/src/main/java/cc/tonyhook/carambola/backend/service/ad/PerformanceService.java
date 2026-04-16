@@ -1461,16 +1461,12 @@ public class PerformanceService {
             Integer clientPortId = Integer.parseInt(key.split("\\|")[1]);
             Integer vendorPortId = Integer.parseInt(key.split("\\|")[2]);
 
-            if (query.filter.containsKey("client") && !query.filter.get("client").isEmpty()
-                || query.filter.containsKey("clientMedia") && !query.filter.get("clientMedia").isEmpty()
-                || query.filter.containsKey("clientPort") && !query.filter.get("clientPort").isEmpty()) {
+            if (hasClientPortFilter(direction, query)) {
                 if (!clientPortMap.containsKey(clientPortId)) {
                     continue;
                 }
             }
-            if (query.filter.containsKey("vendor") && !query.filter.get("vendor").isEmpty()
-                || query.filter.containsKey("vendorMedia") && !query.filter.get("vendorMedia").isEmpty()
-                || query.filter.containsKey("vendorPort") && !query.filter.get("vendorPort").isEmpty()) {
+            if (hasVendorPortFilter(direction, query)) {
                 if (!vendorPortMap.containsKey(vendorPortId)) {
                     continue;
                 }
@@ -1794,16 +1790,12 @@ public class PerformanceService {
                 bundle = key.split("\\|")[3];
             }
 
-            if (query.filter.containsKey("client") && !query.filter.get("client").isEmpty()
-                || query.filter.containsKey("clientMedia") && !query.filter.get("clientMedia").isEmpty()
-                || query.filter.containsKey("clientPort") && !query.filter.get("clientPort").isEmpty()) {
+            if (hasClientPortFilter(direction, query)) {
                 if (!clientPortMap.containsKey(clientPortId)) {
                     continue;
                 }
             }
-            if (query.filter.containsKey("vendor") && !query.filter.get("vendor").isEmpty()
-                || query.filter.containsKey("vendorMedia") && !query.filter.get("vendorMedia").isEmpty()
-                || query.filter.containsKey("vendorPort") && !query.filter.get("vendorPort").isEmpty()) {
+            if (hasVendorPortFilter(direction, query)) {
                 if (!vendorPortMap.containsKey(vendorPortId)) {
                     continue;
                 }
@@ -1876,6 +1868,31 @@ public class PerformanceService {
         } catch (IOException e) {
             return null;
         }
+    }
+
+    private boolean hasActiveFilter(Query query, String... keys) {
+        for (String key : keys) {
+            if (query.filter.containsKey(key) && !query.filter.get(key).isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasClientPortFilter(String direction, Query query) {
+        if (hasActiveFilter(query, "client", "clientMedia", "clientPort")) {
+            return true;
+        }
+
+        return direction.equals("client") && hasActiveFilter(query, "platform", "format", "budget", "mode");
+    }
+
+    private boolean hasVendorPortFilter(String direction, Query query) {
+        if (hasActiveFilter(query, "vendor", "vendorMedia", "vendorPort")) {
+            return true;
+        }
+
+        return direction.equals("vendor") && hasActiveFilter(query, "platform", "format", "budget", "mode");
     }
 
     public PerformanceView convertClientToView(PerformanceClient performanceClient, String interval, String timezone) {

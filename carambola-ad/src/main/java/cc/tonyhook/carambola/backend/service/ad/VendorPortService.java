@@ -153,6 +153,18 @@ public class VendorPortService {
                         return true;
                     }
                 }
+                if (key.equals("platform")) {
+                    List<String> platformList = query.filter.get(key);
+                    Boolean matched = false;
+                    for (String platform : platformList) {
+                        if (vendorPort.getVendorMedia().getPlatform().equals(platform)) {
+                            matched = true;
+                        }
+                    }
+                    if (!matched) {
+                        return true;
+                    }
+                }
             }
 
             if (!StringUtils.isEmpty(query.searchValue)) {

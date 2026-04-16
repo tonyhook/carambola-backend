@@ -296,6 +296,18 @@ public class PartnerService {
                         return true;
                     }
                 }
+                if (key.equals("platform")) {
+                    List<String> platformList = query.filter.get(key);
+                    Boolean matched = false;
+                    for (String platform : platformList) {
+                        if (clientPort.getClientMedia().getPlatform().equalsIgnoreCase(platform)) {
+                            matched = true;
+                        }
+                    }
+                    if (!matched) {
+                        return true;
+                    }
+                }
             }
 
             if (!StringUtils.isEmpty(query.searchValue)) {
@@ -449,6 +461,18 @@ public class PartnerService {
                     Boolean matched = false;
                     for (String budget : budgetList) {
                         if (vendorPort.getBudget().toString().equals(budget.toLowerCase())) {
+                            matched = true;
+                        }
+                    }
+                    if (!matched) {
+                        return true;
+                    }
+                }
+                if (key.equals("platform")) {
+                    List<String> platformList = query.filter.get(key);
+                    Boolean matched = false;
+                    for (String platform : platformList) {
+                        if (vendorPort.getVendorMedia().getPlatform().equalsIgnoreCase(platform)) {
                             matched = true;
                         }
                     }
