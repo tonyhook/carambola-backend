@@ -55,6 +55,8 @@ public class PerformanceClient {
 
     protected Long eventO;
 
+    protected Long eventP;
+
     protected Long impression;
 
     protected Long click;
@@ -95,6 +97,7 @@ public class PerformanceClient {
         this.eventM = 0L;
         this.eventN = 0L;
         this.eventO = 0L;
+        this.eventP = 0L;
         this.impression = 0L;
         this.click = 0L;
         this.general = new HashMap<Integer, Long>();
@@ -255,6 +258,14 @@ public class PerformanceClient {
 
     public void setEventO(Long eventO) {
         this.eventO = eventO;
+    }
+
+    public Long getEventP() {
+        return this.eventP;
+    }
+
+    public void setEventP(Long eventP) {
+        this.eventP = eventP;
     }
 
     public Long getImpression() {
