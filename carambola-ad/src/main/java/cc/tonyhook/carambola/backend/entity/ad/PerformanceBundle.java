@@ -31,6 +31,7 @@ public class PerformanceBundle {
     public final static String PERFORMANCE_LOST_KEY_FIELD                = "ZM";
     public final static String PERFORMANCE_CLIENT_ANTI_FRAUD             = "ZN";
     public final static String PERFORMANCE_REQUEST_REJECTED              = "ZO";
+    public final static String PERFORMANCE_FLOOR_INVALID                 = "ZP";
 
     public final static String TRACKING_IMPRESSION                       = "a";
     public final static String TRACKING_CLICK                            = "b";
