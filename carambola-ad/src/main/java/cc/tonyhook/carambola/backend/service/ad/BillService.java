@@ -330,15 +330,15 @@ public class BillService {
                 keyFieldFound.add("代码位候选");
                 header.put("代码位候选", index);
             }
-            if (caption.equals("收益") || caption.equals("预估收益") || caption.equals("预估收入") || caption.equals("收入") || caption.equals("预估收入(¥)") || caption.equals("收入(元)") || caption.equals("预估支出") || caption.equals("(N)earnings")) {
+            if (caption.equals("收益") || caption.equals("预估收益") || caption.equals("预估收入") || caption.equals("收入") || caption.equals("预估收入(¥)") || caption.equals("收入(元)") || caption.equals("预估支出") || caption.equals("(N)earnings") || caption.equals("估算收入(元)")) {
                 keyFieldFound.add("收益");
                 header.put("收益", index);
             }
-            if (caption.equals("展现量") || caption.equals("曝光") || caption.equals("展示") || caption.equals("展示数") || caption.equals("曝光量") || caption.equals("曝光数") || caption.equals("最终展现") || caption.equals("有效曝光数") || caption.equals("(J)impressionNum")) {
+            if (caption.equals("展现量") || caption.equals("曝光") || caption.equals("展示") || caption.equals("展示数") || caption.equals("曝光量") || caption.equals("曝光数") || caption.equals("最终展现") || caption.equals("有效曝光数") || caption.equals("(J)impressionNum") || caption.equals("展示次数")) {
                 keyFieldFound.add("展现量");
                 header.put("展现量", index);
             }
-            if (caption.equals("点击量") || caption.equals("点击") || caption.equals("点击数") || caption.equals("有效点击数") || caption.equals("(K)clickNum")) {
+            if (caption.equals("点击量") || caption.equals("点击") || caption.equals("点击数") || caption.equals("有效点击数") || caption.equals("(K)clickNum") || caption.equals("点击次数")) {
                 keyFieldFound.add("点击量");
                 header.put("点击量", index);
             }
