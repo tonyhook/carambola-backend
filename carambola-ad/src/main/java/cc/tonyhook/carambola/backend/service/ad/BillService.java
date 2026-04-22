@@ -324,11 +324,15 @@ public class BillService {
             }
             if (caption.equals("代码位") || caption.equals("广告位ID") || caption.equals("广告位id") || caption.equals("广告位 Token") || caption.equals("广告位编号") || caption.equals("媒体广告位ID") || caption.equals("(D)placementId")) {
                 keyFieldFound.add("代码位");
-                header.put("代码位", index);
+                if (!header.containsKey("代码位")) {
+                    header.put("代码位", index);
+                }
             }
             if (caption.equals("广告位名称") || caption.equals("(E)placementName")) {
                 keyFieldFound.add("代码位候选");
-                header.put("代码位候选", index);
+                if (!header.containsKey("代码位候选")) {
+                    header.put("代码位候选", index);
+                }
             }
             if (caption.equals("收益") || caption.equals("预估收益") || caption.equals("预估收入") || caption.equals("收入") || caption.equals("预估收入(¥)") || caption.equals("收入(元)") || caption.equals("预估支出") || caption.equals("(N)earnings") || caption.equals("估算收入(元)")) {
                 keyFieldFound.add("收益");
