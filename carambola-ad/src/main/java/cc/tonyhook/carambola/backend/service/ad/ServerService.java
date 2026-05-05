@@ -180,6 +180,25 @@ public class ServerService {
                     cmd.join();
                     session.close();
                 }
+                if (action.equals("maintain")) {
+                    client.newSCPFileTransfer()
+                        .upload(new FileSystemFile(localPath + "maintain.sh"), remotePath + "maintain.sh");
+
+                    Session session = client.startSession();
+                    Command cmd = session.exec("sudo chmod +x " + remotePath + "maintain.sh");
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(cmd.getInputStream()));
+                    while (reader.readLine() != null) {
+                    }
+
+                    session = client.startSession();
+                    cmd = session.exec("sudo " + remotePath + "maintain.sh");
+                    reader = new BufferedReader(new InputStreamReader(cmd.getInputStream()));
+                    while (reader.readLine() != null) {
+                    }
+
+                    cmd.join();
+                    session.close();
+                }
 
                 client.disconnect();
                 client.close();
