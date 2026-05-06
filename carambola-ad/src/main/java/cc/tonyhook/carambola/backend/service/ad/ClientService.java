@@ -3,6 +3,7 @@ package cc.tonyhook.carambola.backend.service.ad;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.security.core.Authentication;
@@ -42,14 +43,21 @@ public class ClientService {
 
         TenantDefault tenantDefault = tenantDefaultService.getTenantDefault(authentication);
         List<Client> clientList;
+        Set<Integer> accessibleIds;
         if (tenantDefault == null) {
             clientList = clientRepository.findAll();
+            accessibleIds = null;
         } else {
             clientList = clientRepository.findByTenantOrderByUpdateTimeDesc(tenantDefault.getTenant());
+            accessibleIds = authenticationService.getAccessibleClientIds(authentication, tenantDefault.getTenant());
         }
 
         for (Client client : clientList) {
-            if (authenticationService.hasAccess(authentication, client)) {
+            if (tenantDefault != null) {
+                if (accessibleIds == null || accessibleIds.contains(client.getId())) {
+                    qualifiedClientList.add(client);
+                }
+            } else if (authenticationService.hasAccess(authentication, client)) {
                 qualifiedClientList.add(client);
             }
         }
@@ -104,19 +112,42 @@ public class ClientService {
 
         TenantDefault tenantDefault = tenantDefaultService.getTenantDefault(authentication);
         List<Client> clientList;
+        Set<Integer> accessibleIds;
         if (tenantDefault == null) {
             clientList = clientRepository.findAll();
+            accessibleIds = null;
         } else {
             clientList = clientRepository.findByTenantOrderByUpdateTimeDesc(tenantDefault.getTenant());
+            accessibleIds = authenticationService.getAccessibleClientIds(authentication, tenantDefault.getTenant());
         }
 
         for (Client client : clientList) {
-            if (authenticationService.hasAccess(authentication, client)) {
+            if (tenantDefault != null) {
+                if (accessibleIds == null || accessibleIds.contains(client.getId())) {
+                    qualifiedClientList.add(client);
+                }
+            } else if (authenticationService.hasAccess(authentication, client)) {
                 qualifiedClientList.add(client);
             }
         }
 
         return qualifiedClientList;
+    }
+
+    public String getClientListStamp(Authentication authentication) {
+        TenantDefault tenantDefault = tenantDefaultService.getTenantDefault(authentication);
+        List<Object[]> rows;
+        if (tenantDefault == null) {
+            rows = clientRepository.getStamp();
+        } else {
+            rows = clientRepository.getStampByTenant(tenantDefault.getTenant().getId());
+        }
+
+        Object[] row = rows != null && !rows.isEmpty() ? rows.get(0) : null;
+        Object update = row != null && row.length > 0 ? row[0] : null;
+        Object count = row != null && row.length > 1 ? row[1] : null;
+
+        return String.valueOf(update) + "-" + String.valueOf(count);
     }
 
     public Client getClient(Authentication authentication, Integer id) {

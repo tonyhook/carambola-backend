@@ -3,6 +3,7 @@ package cc.tonyhook.carambola.backend.service.ad;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.security.core.Authentication;
@@ -45,14 +46,21 @@ public class VendorService {
 
         TenantDefault tenantDefault = tenantDefaultService.getTenantDefault(authentication);
         List<Vendor> vendorList;
+        Set<Integer> accessibleIds;
         if (tenantDefault == null) {
             vendorList = vendorRepository.findAll();
+            accessibleIds = null;
         } else {
             vendorList = vendorRepository.findByTenantOrderByUpdateTimeDesc(tenantDefault.getTenant());
+            accessibleIds = authenticationService.getAccessibleVendorIds(authentication, tenantDefault.getTenant());
         }
 
         for (Vendor vendor : vendorList) {
-            if (authenticationService.hasAccess(authentication, vendor)) {
+            if (tenantDefault != null) {
+                if (accessibleIds == null || accessibleIds.contains(vendor.getId())) {
+                    qualifiedVendorList.add(vendor);
+                }
+            } else if (authenticationService.hasAccess(authentication, vendor)) {
                 qualifiedVendorList.add(vendor);
             }
         }
@@ -102,19 +110,42 @@ public class VendorService {
 
         TenantDefault tenantDefault = tenantDefaultService.getTenantDefault(authentication);
         List<Vendor> vendorList;
+        Set<Integer> accessibleIds;
         if (tenantDefault == null) {
             vendorList = vendorRepository.findAll();
+            accessibleIds = null;
         } else {
             vendorList = vendorRepository.findByTenantOrderByUpdateTimeDesc(tenantDefault.getTenant());
+            accessibleIds = authenticationService.getAccessibleVendorIds(authentication, tenantDefault.getTenant());
         }
 
         for (Vendor vendor : vendorList) {
-            if (authenticationService.hasAccess(authentication, vendor)) {
+            if (tenantDefault != null) {
+                if (accessibleIds == null || accessibleIds.contains(vendor.getId())) {
+                    qualifiedVendorList.add(vendor);
+                }
+            } else if (authenticationService.hasAccess(authentication, vendor)) {
                 qualifiedVendorList.add(vendor);
             }
         }
 
         return qualifiedVendorList;
+    }
+
+    public String getVendorListStamp(Authentication authentication) {
+        TenantDefault tenantDefault = tenantDefaultService.getTenantDefault(authentication);
+        List<Object[]> rows;
+        if (tenantDefault == null) {
+            rows = vendorRepository.getStamp();
+        } else {
+            rows = vendorRepository.getStampByTenant(tenantDefault.getTenant().getId());
+        }
+
+        Object[] row = rows != null && !rows.isEmpty() ? rows.get(0) : null;
+        Object update = row != null && row.length > 0 ? row[0] : null;
+        Object count = row != null && row.length > 1 ? row[1] : null;
+
+        return String.valueOf(update) + "-" + String.valueOf(count);
     }
 
     public Vendor getVendor(Authentication authentication, Integer id) {
