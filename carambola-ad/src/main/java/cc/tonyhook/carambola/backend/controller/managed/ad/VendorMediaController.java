@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.WebRequest;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -39,20 +40,30 @@ public class VendorMediaController {
     @GetMapping(value = "/api/managed/vendormedia", produces = "application/json; charset=UTF-8")
     public ResponseEntity<List<VendorMedia>> getVendorMediaList(
             @RequestParam(required = false) String query,
-            Authentication authentication) {
+            Authentication authentication,
+            WebRequest webRequest) {
+        String etag = "\"" + vendorMediaService.getVendorMediaListStamp(authentication)
+            + "-" + (authentication != null ? authentication.getName() : "")
+            + "-" + (query != null ? Integer.toHexString(query.hashCode()) : "")
+            + "\"";
+
+        if (webRequest.checkNotModified(etag)) {
+            return ResponseEntity.status(HttpStatus.NOT_MODIFIED).header("Cache-Control", "private, max-age=0, must-revalidate").eTag(etag).build();
+        }
+
         if (query != null) {
             try {
                 ObjectMapper objectMapper = new ObjectMapper();
                 List<VendorMedia> vendorMediaList = vendorMediaService.queryVendorMediaList(authentication, objectMapper.readValue(query, Query.class));
 
-                return ResponseEntity.ok().body(vendorMediaList);
+                return ResponseEntity.ok().header("Cache-Control", "private, max-age=0, must-revalidate").eTag(etag).body(vendorMediaList);
             } catch (Exception e) {
                 return ResponseEntity.badRequest().build();
             }
         } else {
             List<VendorMedia> vendorMediaList = vendorMediaService.getVendorMediaList(authentication);
 
-            return ResponseEntity.ok().body(vendorMediaList);
+            return ResponseEntity.ok().header("Cache-Control", "private, max-age=0, must-revalidate").eTag(etag).body(vendorMediaList);
         }
     }
 

@@ -4,6 +4,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.security.core.Authentication;
@@ -53,14 +54,21 @@ public class VendorPortService {
 
         TenantDefault tenantDefault = tenantDefaultService.getTenantDefault(authentication);
         List<Vendor> vendorList;
+        Set<Integer> accessibleIds;
         if (tenantDefault == null) {
             vendorList = vendorRepository.findAll();
+            accessibleIds = null;
         } else {
             vendorList = vendorRepository.findByTenantOrderByUpdateTimeDesc(tenantDefault.getTenant());
+            accessibleIds = authenticationService.getAccessibleVendorIds(authentication, tenantDefault.getTenant());
         }
 
         for (Vendor vendor : vendorList) {
-            if (authenticationService.hasAccess(authentication, vendor)) {
+            if (tenantDefault != null) {
+                if (accessibleIds == null || accessibleIds.contains(vendor.getId())) {
+                    qualifiedVendorList.add(vendor);
+                }
+            } else if (authenticationService.hasAccess(authentication, vendor)) {
                 qualifiedVendorList.add(vendor);
             }
         }
@@ -198,14 +206,21 @@ public class VendorPortService {
 
         TenantDefault tenantDefault = tenantDefaultService.getTenantDefault(authentication);
         List<Vendor> vendorList;
+        Set<Integer> accessibleIds;
         if (tenantDefault == null) {
             vendorList = vendorRepository.findAll();
+            accessibleIds = null;
         } else {
             vendorList = vendorRepository.findByTenantOrderByUpdateTimeDesc(tenantDefault.getTenant());
+            accessibleIds = authenticationService.getAccessibleVendorIds(authentication, tenantDefault.getTenant());
         }
 
         for (Vendor vendor : vendorList) {
-            if (authenticationService.hasAccess(authentication, vendor)) {
+            if (tenantDefault != null) {
+                if (accessibleIds == null || accessibleIds.contains(vendor.getId())) {
+                    qualifiedVendorList.add(vendor);
+                }
+            } else if (authenticationService.hasAccess(authentication, vendor)) {
                 qualifiedVendorList.add(vendor);
             }
         }
@@ -213,6 +228,24 @@ public class VendorPortService {
         List<VendorPort> vendorPortList = vendorPortRepository.findByVendorInOrderByUpdateTimeDesc(qualifiedVendorList);
 
         return vendorPortList;
+    }
+
+    public String getVendorPortListStamp(Authentication authentication) {
+        TenantDefault tenantDefault = tenantDefaultService.getTenantDefault(authentication);
+        List<Object[]> rows;
+        if (tenantDefault == null) {
+            rows = vendorPortRepository.getStamp();
+        } else {
+            rows = vendorPortRepository.getStampByTenant(tenantDefault.getTenant().getId());
+        }
+
+        Object[] row = rows != null && !rows.isEmpty() ? rows.get(0) : null;
+        Object portUpdate = row != null && row.length > 0 ? row[0] : null;
+        Object portCount = row != null && row.length > 1 ? row[1] : null;
+        Object vendorUpdate = row != null && row.length > 2 ? row[2] : null;
+        Object vendorMediaUpdate = row != null && row.length > 3 ? row[3] : null;
+
+        return String.valueOf(portUpdate) + "-" + String.valueOf(portCount) + "-" + String.valueOf(vendorUpdate) + "-" + String.valueOf(vendorMediaUpdate);
     }
 
     public List<VendorPort> getVendorPortList(Authentication authentication, Vendor vendor) {

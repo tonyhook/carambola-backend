@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.WebRequest;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -43,20 +44,30 @@ public class VendorPortController {
     @GetMapping(value = "/api/managed/vendorport", produces = "application/json; charset=UTF-8")
     public ResponseEntity<List<VendorPort>> getVendorPortList(
             @RequestParam(required = false) String query,
-            Authentication authentication) {
+            Authentication authentication,
+            WebRequest webRequest) {
+        String etag = "\"" + vendorPortService.getVendorPortListStamp(authentication)
+            + "-" + (authentication != null ? authentication.getName() : "")
+            + "-" + (query != null ? Integer.toHexString(query.hashCode()) : "")
+            + "\"";
+
+        if (webRequest.checkNotModified(etag)) {
+            return ResponseEntity.status(HttpStatus.NOT_MODIFIED).header("Cache-Control", "private, max-age=0, must-revalidate").eTag(etag).build();
+        }
+
         if (query != null) {
             try {
                 ObjectMapper objectMapper = new ObjectMapper();
                 List<VendorPort> vendorPortList = vendorPortService.queryVendorPortList(authentication, objectMapper.readValue(query, Query.class));
 
-                return ResponseEntity.ok().body(vendorPortList);
+                return ResponseEntity.ok().header("Cache-Control", "private, max-age=0, must-revalidate").eTag(etag).body(vendorPortList);
             } catch (Exception e) {
                 return ResponseEntity.badRequest().build();
             }
         } else {
             List<VendorPort> vendorPortList = vendorPortService.getVendorPortList(authentication);
 
-            return ResponseEntity.ok().body(vendorPortList);
+            return ResponseEntity.ok().header("Cache-Control", "private, max-age=0, must-revalidate").eTag(etag).body(vendorPortList);
         }
     }
 

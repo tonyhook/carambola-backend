@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.WebRequest;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -35,20 +36,30 @@ public class ClientController {
     @GetMapping(value = "/api/managed/client", produces = "application/json; charset=UTF-8")
     public ResponseEntity<List<Client>> getClientList(
             @RequestParam(required = false) String query,
-            Authentication authentication) {
+            Authentication authentication,
+            WebRequest webRequest) {
+        String etag = "\"" + clientService.getClientListStamp(authentication)
+            + "-" + (authentication != null ? authentication.getName() : "")
+            + "-" + (query != null ? Integer.toHexString(query.hashCode()) : "")
+            + "\"";
+
+        if (webRequest.checkNotModified(etag)) {
+            return ResponseEntity.status(HttpStatus.NOT_MODIFIED).header("Cache-Control", "private, max-age=0, must-revalidate").eTag(etag).build();
+        }
+
         if (query != null) {
             try {
                 ObjectMapper objectMapper = new ObjectMapper();
                 List<Client> clientList = clientService.queryClientList(authentication, objectMapper.readValue(query, Query.class));
 
-                return ResponseEntity.ok().body(clientList);
+                return ResponseEntity.ok().header("Cache-Control", "private, max-age=0, must-revalidate").eTag(etag).body(clientList);
             } catch (Exception e) {
                 return ResponseEntity.badRequest().build();
             }
         } else {
             List<Client> clientList = clientService.getClientList(authentication);
 
-            return ResponseEntity.ok().body(clientList);
+            return ResponseEntity.ok().header("Cache-Control", "private, max-age=0, must-revalidate").eTag(etag).body(clientList);
         }
     }
 

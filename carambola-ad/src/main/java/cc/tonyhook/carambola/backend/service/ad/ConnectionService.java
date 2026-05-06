@@ -61,14 +61,20 @@ public class ConnectionService {
         return connection;
     }
 
+    @Transactional
     public Connection addConnection(Connection newConnection) {
         Connection updatedConnection = connectionRepository.save(newConnection);
+        touchConnectionPorts(updatedConnection);
 
         return updatedConnection;
     }
 
+    @Transactional
     public void updateConnection(Integer id, Connection newConnection) {
-        connectionRepository.save(newConnection);
+        Connection targetConnection = connectionRepository.findById(id).orElse(null);
+        Connection updatedConnection = connectionRepository.save(newConnection);
+        touchConnectionPorts(targetConnection);
+        touchConnectionPorts(updatedConnection);
     }
 
     @Transactional
@@ -77,6 +83,27 @@ public class ConnectionService {
 
         if (deletedConnection != null) {
             deletedConnection.setDeleted(true);
+            touchConnectionPorts(deletedConnection);
+        }
+    }
+
+    private void touchConnectionPorts(Connection connection) {
+        if (connection == null) {
+            return;
+        }
+
+        Timestamp now = new Timestamp(System.currentTimeMillis());
+        if (connection.getClientPort() != null && connection.getClientPort().getId() != null) {
+            ClientPort clientPort = clientPortRepository.findById(connection.getClientPort().getId()).orElse(null);
+            if (clientPort != null) {
+                clientPort.setUpdateTime(now);
+            }
+        }
+        if (connection.getVendorPort() != null && connection.getVendorPort().getId() != null) {
+            VendorPort vendorPort = vendorPortRepository.findById(connection.getVendorPort().getId()).orElse(null);
+            if (vendorPort != null) {
+                vendorPort.setUpdateTime(now);
+            }
         }
     }
 

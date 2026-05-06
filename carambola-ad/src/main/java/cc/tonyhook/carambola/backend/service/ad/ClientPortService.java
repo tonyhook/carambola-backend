@@ -4,6 +4,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.security.core.Authentication;
@@ -53,14 +54,21 @@ public class ClientPortService {
 
         TenantDefault tenantDefault = tenantDefaultService.getTenantDefault(authentication);
         List<Client> clientList;
+        Set<Integer> accessibleIds;
         if (tenantDefault == null) {
             clientList = clientRepository.findAll();
+            accessibleIds = null;
         } else {
             clientList = clientRepository.findByTenantOrderByUpdateTimeDesc(tenantDefault.getTenant());
+            accessibleIds = authenticationService.getAccessibleClientIds(authentication, tenantDefault.getTenant());
         }
 
         for (Client client : clientList) {
-            if (authenticationService.hasAccess(authentication, client)) {
+            if (tenantDefault != null) {
+                if (accessibleIds == null || accessibleIds.contains(client.getId())) {
+                    qualifiedClientList.add(client);
+                }
+            } else if (authenticationService.hasAccess(authentication, client)) {
                 qualifiedClientList.add(client);
             }
         }
@@ -198,14 +206,21 @@ public class ClientPortService {
 
         TenantDefault tenantDefault = tenantDefaultService.getTenantDefault(authentication);
         List<Client> clientList;
+        Set<Integer> accessibleIds;
         if (tenantDefault == null) {
             clientList = clientRepository.findAll();
+            accessibleIds = null;
         } else {
             clientList = clientRepository.findByTenantOrderByUpdateTimeDesc(tenantDefault.getTenant());
+            accessibleIds = authenticationService.getAccessibleClientIds(authentication, tenantDefault.getTenant());
         }
 
         for (Client client : clientList) {
-            if (authenticationService.hasAccess(authentication, client)) {
+            if (tenantDefault != null) {
+                if (accessibleIds == null || accessibleIds.contains(client.getId())) {
+                    qualifiedClientList.add(client);
+                }
+            } else if (authenticationService.hasAccess(authentication, client)) {
                 qualifiedClientList.add(client);
             }
         }
@@ -213,6 +228,24 @@ public class ClientPortService {
         List<ClientPort> clientPortList = clientPortRepository.findByClientInOrderByUpdateTimeDesc(qualifiedClientList);
 
         return clientPortList;
+    }
+
+    public String getClientPortListStamp(Authentication authentication) {
+        TenantDefault tenantDefault = tenantDefaultService.getTenantDefault(authentication);
+        List<Object[]> rows;
+        if (tenantDefault == null) {
+            rows = clientPortRepository.getStamp();
+        } else {
+            rows = clientPortRepository.getStampByTenant(tenantDefault.getTenant().getId());
+        }
+
+        Object[] row = rows != null && !rows.isEmpty() ? rows.get(0) : null;
+        Object portUpdate = row != null && row.length > 0 ? row[0] : null;
+        Object portCount = row != null && row.length > 1 ? row[1] : null;
+        Object clientUpdate = row != null && row.length > 2 ? row[2] : null;
+        Object clientMediaUpdate = row != null && row.length > 3 ? row[3] : null;
+
+        return String.valueOf(portUpdate) + "-" + String.valueOf(portCount) + "-" + String.valueOf(clientUpdate) + "-" + String.valueOf(clientMediaUpdate);
     }
 
     public List<ClientPort> getClientPortList(Authentication authentication, Client client) {
