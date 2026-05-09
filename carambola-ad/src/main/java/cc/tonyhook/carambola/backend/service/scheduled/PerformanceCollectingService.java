@@ -697,6 +697,7 @@ public class PerformanceCollectingService {
                     case "L": performanceClientQuarter.setEventL(performanceClientQuarter.getEventL() + performance.getAmount());break;
                     case "M": performanceClientQuarter.setEventM(performanceClientQuarter.getEventM() + performance.getAmount());break;
                     case "N": performanceClientQuarter.setEventN(performanceClientQuarter.getEventN() + performance.getAmount());break;
+                    case "O": performanceClientQuarter.setEventO(performanceClientQuarter.getEventO() + performance.getAmount());break;
                     default: break;
                 }
 
@@ -721,6 +722,7 @@ public class PerformanceCollectingService {
                     case "L": performanceClientHour.setEventL(performanceClientHour.getEventL() + performance.getAmount());break;
                     case "M": performanceClientHour.setEventM(performanceClientHour.getEventM() + performance.getAmount());break;
                     case "N": performanceClientHour.setEventN(performanceClientHour.getEventN() + performance.getAmount());break;
+                    case "O": performanceClientHour.setEventO(performanceClientHour.getEventO() + performance.getAmount());break;
                     default: break;
                 }
 
@@ -745,6 +747,7 @@ public class PerformanceCollectingService {
                     case "L": performanceClientDay.setEventL(performanceClientDay.getEventL() + performance.getAmount());break;
                     case "M": performanceClientDay.setEventM(performanceClientDay.getEventM() + performance.getAmount());break;
                     case "N": performanceClientDay.setEventN(performanceClientDay.getEventN() + performance.getAmount());break;
+                    case "O": performanceClientDay.setEventO(performanceClientDay.getEventO() + performance.getAmount());break;
                     default: break;
                 }
 
@@ -769,6 +772,7 @@ public class PerformanceCollectingService {
                     case "L": performanceClientQuarter0.setEventL(performanceClientQuarter0.getEventL() + performance.getAmount());break;
                     case "M": performanceClientQuarter0.setEventM(performanceClientQuarter0.getEventM() + performance.getAmount());break;
                     case "N": performanceClientQuarter0.setEventN(performanceClientQuarter0.getEventN() + performance.getAmount());break;
+                    case "O": performanceClientQuarter0.setEventO(performanceClientQuarter0.getEventO() + performance.getAmount());break;
                     default: break;
                 }
 
@@ -793,6 +797,7 @@ public class PerformanceCollectingService {
                     case "L": performanceClientHour0.setEventL(performanceClientHour0.getEventL() + performance.getAmount());break;
                     case "M": performanceClientHour0.setEventM(performanceClientHour0.getEventM() + performance.getAmount());break;
                     case "N": performanceClientHour0.setEventN(performanceClientHour0.getEventN() + performance.getAmount());break;
+                    case "O": performanceClientHour0.setEventO(performanceClientHour0.getEventO() + performance.getAmount());break;
                     default: break;
                 }
 
@@ -817,6 +822,7 @@ public class PerformanceCollectingService {
                     case "L": performanceClientDay0.setEventL(performanceClientDay0.getEventL() + performance.getAmount());break;
                     case "M": performanceClientDay0.setEventM(performanceClientDay0.getEventM() + performance.getAmount());break;
                     case "N": performanceClientDay0.setEventN(performanceClientDay0.getEventN() + performance.getAmount());break;
+                    case "O": performanceClientDay0.setEventO(performanceClientDay0.getEventO() + performance.getAmount());break;
                     default: break;
                 }
             }
@@ -1390,6 +1396,7 @@ public class PerformanceCollectingService {
                     case "L": performanceClientBundleQuarter.setEventL(performanceClientBundleQuarter.getEventL() + performanceBundle.getAmount());break;
                     case "M": performanceClientBundleQuarter.setEventM(performanceClientBundleQuarter.getEventM() + performanceBundle.getAmount());break;
                     case "N": performanceClientBundleQuarter.setEventN(performanceClientBundleQuarter.getEventN() + performanceBundle.getAmount());break;
+                    case "O": performanceClientBundleQuarter.setEventO(performanceClientBundleQuarter.getEventO() + performanceBundle.getAmount());break;
                     default: break;
                 }
 
@@ -1414,6 +1421,7 @@ public class PerformanceCollectingService {
                     case "L": performanceClientBundleHour.setEventL(performanceClientBundleHour.getEventL() + performanceBundle.getAmount());break;
                     case "M": performanceClientBundleHour.setEventM(performanceClientBundleHour.getEventM() + performanceBundle.getAmount());break;
                     case "N": performanceClientBundleHour.setEventN(performanceClientBundleHour.getEventN() + performanceBundle.getAmount());break;
+                    case "O": performanceClientBundleHour.setEventO(performanceClientBundleHour.getEventO() + performanceBundle.getAmount());break;
                     default: break;
                 }
 
@@ -1438,6 +1446,7 @@ public class PerformanceCollectingService {
                     case "L": performanceClientBundleDay.setEventL(performanceClientBundleDay.getEventL() + performanceBundle.getAmount());break;
                     case "M": performanceClientBundleDay.setEventM(performanceClientBundleDay.getEventM() + performanceBundle.getAmount());break;
                     case "N": performanceClientBundleDay.setEventN(performanceClientBundleDay.getEventN() + performanceBundle.getAmount());break;
+                    case "O": performanceClientBundleDay.setEventO(performanceClientBundleDay.getEventO() + performanceBundle.getAmount());break;
                     default: break;
                 }
 
@@ -1462,6 +1471,7 @@ public class PerformanceCollectingService {
                     case "L": performanceClientBundleQuarter0.setEventL(performanceClientBundleQuarter0.getEventL() + performanceBundle.getAmount());break;
                     case "M": performanceClientBundleQuarter0.setEventM(performanceClientBundleQuarter0.getEventM() + performanceBundle.getAmount());break;
                     case "N": performanceClientBundleQuarter0.setEventN(performanceClientBundleQuarter0.getEventN() + performanceBundle.getAmount());break;
+                    case "O": performanceClientBundleQuarter0.setEventO(performanceClientBundleQuarter0.getEventO() + performanceBundle.getAmount());break;
                     default: break;
                 }
 
@@ -1486,6 +1496,7 @@ public class PerformanceCollectingService {
                     case "L": performanceClientBundleHour0.setEventL(performanceClientBundleHour0.getEventL() + performanceBundle.getAmount());break;
                     case "M": performanceClientBundleHour0.setEventM(performanceClientBundleHour0.getEventM() + performanceBundle.getAmount());break;
                     case "N": performanceClientBundleHour0.setEventN(performanceClientBundleHour0.getEventN() + performanceBundle.getAmount());break;
+                    case "O": performanceClientBundleHour0.setEventO(performanceClientBundleHour0.getEventO() + performanceBundle.getAmount());break;
                     default: break;
                 }
 
@@ -1510,6 +1521,7 @@ public class PerformanceCollectingService {
                     case "L": performanceClientBundleDay0.setEventL(performanceClientBundleDay0.getEventL() + performanceBundle.getAmount());break;
                     case "M": performanceClientBundleDay0.setEventM(performanceClientBundleDay0.getEventM() + performanceBundle.getAmount());break;
                     case "N": performanceClientBundleDay0.setEventN(performanceClientBundleDay0.getEventN() + performanceBundle.getAmount());break;
+                    case "O": performanceClientBundleDay0.setEventO(performanceClientBundleDay0.getEventO() + performanceBundle.getAmount());break;
                     default: break;
                 }
             }
