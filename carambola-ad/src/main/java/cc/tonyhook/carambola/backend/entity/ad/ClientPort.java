@@ -54,6 +54,10 @@ public class ClientPort {
 
     private String ikey;
 
+    private String appname;
+
+    private String apppackage;
+
     @Lob
     @Column(length = 65536)
     private String filter;
@@ -158,6 +162,22 @@ public class ClientPort {
 
     public void setIkey(String ikey) {
         this.ikey = ikey;
+    }
+
+    public String getAppname() {
+        return this.appname;
+    }
+
+    public void setAppname(String appname) {
+        this.appname = appname;
+    }
+
+    public String getApppackage() {
+        return this.apppackage;
+    }
+
+    public void setApppackage(String apppackage) {
+        this.apppackage = apppackage;
     }
 
     public String getFilter() {
