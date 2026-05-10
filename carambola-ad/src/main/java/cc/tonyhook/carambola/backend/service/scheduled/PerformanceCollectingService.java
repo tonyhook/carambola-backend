@@ -1,5 +1,6 @@
 package cc.tonyhook.carambola.backend.service.scheduled;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.ZoneId;
@@ -11,16 +12,22 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.connection.RedisConnection;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
-import org.springframework.data.redis.connection.jedis.JedisClientConfiguration;
-import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.connection.lettuce.LettucePoolingClientConfiguration;
+import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.serializer.GenericToStringSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -60,6 +67,7 @@ import cc.tonyhook.carambola.backend.entity.ad.Server;
 import cc.tonyhook.carambola.backend.service.ad.ConnectionService;
 import cc.tonyhook.carambola.backend.service.ad.PerformanceService;
 import cc.tonyhook.carambola.backend.service.ad.ServerService;
+import io.lettuce.core.api.StatefulConnection;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
@@ -92,7 +100,7 @@ public class PerformanceCollectingService {
     @Value("${app.performance-interval:5}")
     private Integer performanceInterval;
 
-    private Map<String, JedisConnectionFactory> jedisConnectionFactoryMap = new HashMap<String, JedisConnectionFactory>();
+    private Map<String, RedisConnectionFactory> redisConnectionFactoryMap = new ConcurrentHashMap<String, RedisConnectionFactory>();
 
     public PerformanceCollectingService(
             PerformanceClientQuarterRepository performanceClientQuarterRepository,
@@ -130,24 +138,33 @@ public class PerformanceCollectingService {
         this.transactionTemplate = transactionTemplate;
     }
 
-    public JedisConnectionFactory jedisConnectionFactory(String host, Integer port) {
-        if (jedisConnectionFactoryMap.containsKey(host + ":" + port)) {
-            return jedisConnectionFactoryMap.get(host + ":" + port);
+    private RedisConnectionFactory redisConnectionFactory(String host, Integer port) {
+        if (redisConnectionFactoryMap.containsKey(host + ":" + port)) {
+            return redisConnectionFactoryMap.get(host + ":" + port);
         }
 
         RedisStandaloneConfiguration redisStandaloneConfiguration = new RedisStandaloneConfiguration(host, port);
-        JedisClientConfiguration jedisClientConfiguration = JedisClientConfiguration.builder().readTimeout(Duration.ofMillis(60000)).build();
-        JedisConnectionFactory jedisConnectionFactory = new JedisConnectionFactory(redisStandaloneConfiguration, jedisClientConfiguration);
-        jedisConnectionFactory.start();
 
-        jedisConnectionFactoryMap.put(host + ":" + port, jedisConnectionFactory);
+        GenericObjectPoolConfig<StatefulConnection<?, ?>> poolConfig = new GenericObjectPoolConfig<>();
+        poolConfig.setMaxTotal(20);
+        poolConfig.setMaxIdle(10);
+        poolConfig.setMinIdle(5);
 
-        return jedisConnectionFactory;
+        LettucePoolingClientConfiguration clientConfig = LettucePoolingClientConfiguration.builder()
+            .poolConfig(poolConfig)
+            .commandTimeout(Duration.ofSeconds(60))
+            .build();
+
+        LettuceConnectionFactory factory = new LettuceConnectionFactory(redisStandaloneConfiguration, clientConfig);
+        factory.afterPropertiesSet();
+        redisConnectionFactoryMap.put(host + ":" + port, factory);
+
+        return factory;
     }
 
-    public RedisTemplate<String, Integer> redisTemplate(String host, Integer port) {
+    private RedisTemplate<String, Integer> redisTemplate(String host, Integer port) {
         RedisTemplate<String, Integer> template = new RedisTemplate<>();
-        template.setConnectionFactory(jedisConnectionFactory(host, port));
+        template.setConnectionFactory(redisConnectionFactory(host, port));
 
         StringRedisSerializer stringRedisSerializer = new StringRedisSerializer();
         GenericToStringSerializer<Integer> genericToStringSerializer = new GenericToStringSerializer<Integer>(Integer.class);
@@ -159,6 +176,61 @@ public class PerformanceCollectingService {
         return template;
     }
 
+    private Map<String, String> batchGetData(String host, Integer port, String prefix) {
+        RedisTemplate<String, Integer> redisTemplate = redisTemplate(host, port);
+
+        ScanOptions options = ScanOptions.scanOptions()
+            .match(prefix + "*")
+            .count(5000)
+            .build();
+
+        Map<String, String> result = new HashMap<String, String>();
+
+        redisTemplate.execute((RedisCallback<Void>) connection -> {
+            try (Cursor<byte[]> cursor = connection.keyCommands().scan(options)) {
+                List<byte[]> batch = new ArrayList<byte[]>(5000);
+                while (cursor.hasNext()) {
+                    batch.add(cursor.next());
+
+                    if (batch.size() >= 5000) {
+                        pipelineFetch(connection, batch, result);
+                        batch.clear();
+                        Thread.sleep(1);
+                    }
+                }
+
+                if (!batch.isEmpty()) {
+                    pipelineFetch(connection, batch, result);
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+
+            return null;
+        });
+
+        return result;
+    }
+
+    private void pipelineFetch(
+            RedisConnection connection,
+            List<byte[]> batch,
+            Map<String, String> result) {
+        connection.openPipeline();
+
+        for (byte[] key : batch) {
+            connection.stringCommands().get(key);
+        }
+
+        List<Object> values = connection.closePipeline();
+
+        for (int i = 0; i < batch.size(); i++) {
+            if (values.get(i) != null) {
+                result.put(new String(batch.get(i)), new String((byte[]) values.get(i), StandardCharsets.UTF_8));
+            }
+        }
+    }
+
     // Note:
     // collecting interval should equal or larger than performance interval
     // postpone should less than collecting interval
@@ -166,14 +238,6 @@ public class PerformanceCollectingService {
     public void collectPerformance() {
         List<Connection> connectionList = connectionService.getConnectionList();
         Map<Integer, Connection> connectionMap = connectionList.stream().collect(Collectors.toMap(Connection::getId, Function.identity()));
-
-        Calendar base_calendar = Calendar.getInstance();
-        int base_hour = base_calendar.get(Calendar.HOUR_OF_DAY);
-        int base_minute = base_calendar.get(Calendar.MINUTE);
-        base_minute = base_minute / performanceInterval * performanceInterval;
-        base_calendar.set(Calendar.MINUTE, base_minute);
-        base_calendar.set(Calendar.SECOND, 0);
-        base_calendar.set(Calendar.MILLISECOND, 0);
 
         List<Performance> performanceList = new ArrayList<Performance>();
         Map<String, Performance> performanceMap = new HashMap<String, Performance>();
@@ -184,322 +248,409 @@ public class PerformanceCollectingService {
         List<FinanceBundle> financeBundleList = new ArrayList<FinanceBundle>();
         Map<String, FinanceBundle> financeBundleMap = new HashMap<String, FinanceBundle>();
 
-        List<Server> serverList = serverService.getServerList(null);
-        Timestamp from_performance = null;
-        Timestamp to_performance = null;
-        Timestamp from_finance = null;
-        Timestamp to_finance = null;
+        Calendar base_calendar = Calendar.getInstance();
+        int base_hour = base_calendar.get(Calendar.HOUR_OF_DAY);
+        int base_minute = base_calendar.get(Calendar.MINUTE);
+        base_minute = base_minute / performanceInterval * performanceInterval;
+        base_calendar.set(Calendar.MINUTE, base_minute);
+        base_calendar.set(Calendar.SECOND, 0);
+        base_calendar.set(Calendar.MILLISECOND, 0);
+        final int final_base_hour = base_hour;
+        final int final_base_minute = base_minute;
 
+        Timestamp from_performance = new Timestamp(System.currentTimeMillis());
+        Timestamp to_performance = new Timestamp(0);
+        Timestamp from_finance = new Timestamp(System.currentTimeMillis());
+        Timestamp to_finance = new Timestamp(0);
+
+        List<Server> serverList = serverService.getServerList(null);
+        Map<Integer, Map<String, String>> performanceDataMap = new ConcurrentHashMap<Integer, Map<String, String>>();
+        Map<Integer, Map<String, String>> trackingDataMap = new ConcurrentHashMap<Integer, Map<String, String>>();
+        Map<Integer, Map<String, String>> financeDataMap = new ConcurrentHashMap<Integer, Map<String, String>>();
+
+        HashSet<String> existingServerList = new HashSet<String>(redisConnectionFactoryMap.keySet());
         for (Server server : serverList) {
+            existingServerList.remove(server.getAddress() + ":" + 6480);
+        }
+        for (String server : existingServerList) {
+            ((LettuceConnectionFactory) redisConnectionFactoryMap.get(server)).destroy();
+            redisConnectionFactoryMap.remove(server);
+        }
+
+        serverList.parallelStream().forEach(server -> {
             try {
                 String host = server.getAddress();
                 Integer port = 6480;
                 Integer node = server.getNode();
 
-                RedisTemplate<String, Integer> redisTemplate = redisTemplate(host, port);
-
-                Set<String> keys_performance = redisTemplate.keys("P*");
-                for (String key : keys_performance) {
+                Map<String, String> performanceData = batchGetData(host, port, "P");
+                performanceDataMap.put(node, performanceData);
+                for (String key : performanceData.keySet()) {
                     int hour = Integer.parseInt(key.substring(1, 3));
                     int minute = Integer.parseInt(key.substring(3, 5));
 
-                    if (hour == base_hour && minute == base_minute) {
+                    if (hour == final_base_hour && minute == final_base_minute) {
                         continue;
                     }
 
                     Calendar performance_calendar = (Calendar) base_calendar.clone();
                     performance_calendar.set(Calendar.HOUR_OF_DAY, hour);
                     performance_calendar.set(Calendar.MINUTE, minute);
-                    if (hour > base_hour || (hour == base_hour && minute > base_minute)) {
+                    if (hour > final_base_hour || (hour == final_base_hour && minute > final_base_minute)) {
                         // last day
                         performance_calendar.add(Calendar.DATE, -1);
                     }
 
-                    if (from_performance == null || from_performance.after(new Timestamp(performance_calendar.getTimeInMillis()))) {
-                        from_performance = new Timestamp(performance_calendar.getTimeInMillis());
-                    }
-                    if (to_performance == null || to_performance.before(new Timestamp(performance_calendar.getTimeInMillis()))) {
-                        to_performance = new Timestamp(performance_calendar.getTimeInMillis());
+                    synchronized (from_performance) {
+                        if (from_performance.after(new Timestamp(performance_calendar.getTimeInMillis()))) {
+                            from_performance.setTime(performance_calendar.getTimeInMillis());
+                        }
+                        if (to_performance.before(new Timestamp(performance_calendar.getTimeInMillis()))) {
+                            to_performance.setTime(performance_calendar.getTimeInMillis());
+                        }
                     }
                 }
 
-                Set<String> keys_tracking = redisTemplate.keys("T1*");
-                for (String key : keys_tracking) {
+                Map<String, String> trackingData = batchGetData(host, port, "T1");
+                trackingDataMap.put(node, trackingData);
+                for (String key : trackingData.keySet()) {
                     int hour = Integer.parseInt(key.substring(2, 4));
                     int minute = Integer.parseInt(key.substring(4, 6));
                     minute = minute / performanceInterval * performanceInterval;
 
-                    if (hour == base_hour && minute == base_minute) {
+                    if (hour == final_base_hour && minute == final_base_minute) {
                         continue;
                     }
 
                     Calendar tracking_calendar = (Calendar) base_calendar.clone();
                     tracking_calendar.set(Calendar.HOUR_OF_DAY, hour);
                     tracking_calendar.set(Calendar.MINUTE, minute);
-                    if (hour > base_hour || (hour == base_hour && minute > base_minute)) {
+                    if (hour > final_base_hour || (hour == final_base_hour && minute > final_base_minute)) {
                         // last day
                         tracking_calendar.add(Calendar.DATE, -1);
                     }
 
-                    if (from_performance == null || from_performance.after(new Timestamp(tracking_calendar.getTimeInMillis()))) {
-                        from_performance = new Timestamp(tracking_calendar.getTimeInMillis());
-                    }
-                    if (to_performance == null || to_performance.before(new Timestamp(tracking_calendar.getTimeInMillis()))) {
-                        to_performance = new Timestamp(tracking_calendar.getTimeInMillis());
-                    }
-                }
-
-                List<PerformanceBundle> existedPerformanceBundleList = performanceService.getPerformanceBundleList(from_performance, to_performance);
-                Map<String, PerformanceBundle> existedPerformanceBundleMap = new HashMap<String, PerformanceBundle>();
-                for (PerformanceBundle performanceBundle : existedPerformanceBundleList) {
-                    Calendar performance_calendar = Calendar.getInstance();
-                    performance_calendar.setTimeInMillis(performanceBundle.getTime().getTime());
-                    String key = performance_calendar.get(Calendar.HOUR_OF_DAY) + "|" + performance_calendar.get(Calendar.MINUTE) + "|" + performanceBundle.getClientPort() + "|" + performanceBundle.getVendorPort() + "|" + performanceBundle.getBundle() + "|" + performanceBundle.getNode() + "|" + performanceBundle.getEvent();
-                    existedPerformanceBundleMap.put(key, performanceBundle);
-                }
-
-                for (String key : keys_performance) {
-                    int hour = Integer.parseInt(key.substring(1, 3));
-                    int minute = Integer.parseInt(key.substring(3, 5));
-
-                    if (hour == base_hour && minute == base_minute) {
-                        continue;
-                    }
-
-                    Calendar performance_calendar = (Calendar) base_calendar.clone();
-                    performance_calendar.set(Calendar.HOUR_OF_DAY, hour);
-                    performance_calendar.set(Calendar.MINUTE, minute);
-                    if (hour > base_hour || (hour == base_hour && minute > base_minute)) {
-                        // last day
-                        performance_calendar.add(Calendar.DATE, -1);
-                    }
-
-                    Integer clientPort = Integer.parseInt(key.split(":")[1]);
-                    Integer vendorPort = Integer.parseInt(key.split(":")[2]);
-                    String bundle = "UNKNOWN";
-                    String event = null;
-                    if (key.split(":").length == 5) {
-                        bundle = key.split(":")[3];
-                        event = key.split(":")[4];
-                    } else {
-                        event = key.split(":")[3];
-                    }
-
-                    if (existedPerformanceBundleMap.containsKey(hour + "|" + minute + "|" + clientPort + "|" + vendorPort + "|" + bundle + "|" +  node + "|" + event)) {
-                        continue;
-                    }
-
-                    Integer value = redisTemplate.opsForValue().get(key);
-
-                    String performanceKey = hour + "|" + minute + "|" + clientPort + "|" + vendorPort + "|" + node + "|" + event;
-                    if (!performanceMap.containsKey(performanceKey)) {
-                        Performance performance = new Performance(clientPort, vendorPort, node, new Timestamp(performance_calendar.getTimeInMillis()), event);
-
-                        performanceList.add(performance);
-                        performanceMap.put(performanceKey, performance);
-                    }
-                    Performance performance = performanceMap.get(performanceKey);
-                    performance.setAmount(performance.getAmount() + value);
-
-                    String performanceBundleKey = hour + "|" + minute + "|" + clientPort + "|" + vendorPort + "|" + bundle + "|" + node + "|" + event;
-                    if (!performanceBundleMap.containsKey(performanceBundleKey)) {
-                        PerformanceBundle performanceBundle = new PerformanceBundle(clientPort, vendorPort, bundle, node, new Timestamp(performance_calendar.getTimeInMillis()), event);
-
-                        performanceBundleList.add(performanceBundle);
-                        performanceBundleMap.put(performanceBundleKey, performanceBundle);
-                    }
-                    PerformanceBundle performanceBundle = performanceBundleMap.get(performanceBundleKey);
-                    performanceBundle.setAmount(performanceBundle.getAmount() + value);
-                }
-
-                for (String key : keys_tracking) {
-                    int hour = Integer.parseInt(key.substring(2, 4));
-                    int minute = Integer.parseInt(key.substring(4, 6));
-                    minute = minute / performanceInterval * performanceInterval;
-
-                    if (hour == base_hour && minute == base_minute) {
-                        continue;
-                    }
-
-                    Calendar tracking_calendar = (Calendar) base_calendar.clone();
-                    tracking_calendar.set(Calendar.HOUR_OF_DAY, hour);
-                    tracking_calendar.set(Calendar.MINUTE, minute);
-                    if (hour > base_hour || (hour == base_hour && minute > base_minute)) {
-                        // last day
-                        tracking_calendar.add(Calendar.DATE, -1);
-                    }
-
-                    Integer connection = Integer.parseInt(key.split(":")[1]);
-                    String bundle = "UNKNOWN";
-                    String event = "";
-                    Integer eventCode = 0;
-                    if (key.split(":").length == 4) {
-                        bundle = key.split(":")[2];
-                        eventCode = Integer.parseInt(key.split(":")[3]);
-                    } else {
-                        eventCode = Integer.parseInt(key.split(":")[2]);
-                    }
-                    switch (eventCode) {
-                        case 501:
-                            event = Performance.TRACKING_IMPRESSION;
-                            break;
-                        case 502:
-                            event = Performance.TRACKING_CLICK;
-                            break;
-                        default:
-                            event = Performance.TRACKING_GENERAL;
-                            break;
-                    }
-
-                    if (connectionMap.containsKey(connection) && existedPerformanceBundleMap.containsKey(hour + "|" + minute + "|" + connectionMap.get(connection).getClientPort().getId() + "|" + connectionMap.get(connection).getVendorPort().getId() + "|" + bundle + "|" +  node + "|" + event)) {
-                        continue;
-                    }
-
-                    Integer value = redisTemplate.opsForValue().get(key);
-
-                    if (connectionMap.containsKey(connection)) {
-                        String performanceKey = hour + "|" + minute + "|" + connectionMap.get(connection).getClientPort().getId() + "|" + connectionMap.get(connection).getVendorPort().getId() + "|" + node + "|" + event;
-                        if (!performanceMap.containsKey(performanceKey)) {
-                            Performance performance = new Performance(connectionMap.get(connection).getClientPort().getId(), connectionMap.get(connection).getVendorPort().getId(), node, new Timestamp(tracking_calendar.getTimeInMillis()), event);
-
-                            performanceList.add(performance);
-                            performanceMap.put(performanceKey, performance);
+                    synchronized (from_performance) {
+                        if (from_performance.after(new Timestamp(tracking_calendar.getTimeInMillis()))) {
+                            from_performance.setTime(tracking_calendar.getTimeInMillis());
                         }
-                        Performance performance = performanceMap.get(performanceKey);
-                        performance.setAmount(performance.getAmount() + value);
-
-                        String performanceBundleKey = hour + "|" + minute + "|" + connectionMap.get(connection).getClientPort().getId() + "|" + connectionMap.get(connection).getVendorPort().getId() + "|" + bundle + "|" + node + "|" + event;
-                        if (!performanceBundleMap.containsKey(performanceBundleKey)) {
-                            PerformanceBundle performanceBundle = new PerformanceBundle(connectionMap.get(connection).getClientPort().getId(), connectionMap.get(connection).getVendorPort().getId(), bundle, node, new Timestamp(tracking_calendar.getTimeInMillis()), event);
-
-                            performanceBundleList.add(performanceBundle);
-                            performanceBundleMap.put(performanceBundleKey, performanceBundle);
+                        if (to_performance.before(new Timestamp(tracking_calendar.getTimeInMillis()))) {
+                            to_performance.setTime(tracking_calendar.getTimeInMillis());
                         }
-                        PerformanceBundle performanceBundle = performanceBundleMap.get(performanceBundleKey);
-                        performanceBundle.setAmount(performanceBundle.getAmount() + value);
                     }
                 }
 
-                Set<String> keys_finance = redisTemplate.keys("C*");
-                for (String key : keys_finance) {
+                Map<String, String> financeData = batchGetData(host, port, "C");
+                financeDataMap.put(node, financeData);
+                for (String key : financeData.keySet()) {
                     int hour = Integer.parseInt(key.substring(2, 4));
                     int minute = Integer.parseInt(key.substring(4, 6));
 
-                    if (hour == base_hour && minute == base_minute) {
+                    if (hour == final_base_hour && minute == final_base_minute) {
                         continue;
                     }
 
                     Calendar finance_calendar = (Calendar) base_calendar.clone();
                     finance_calendar.set(Calendar.HOUR_OF_DAY, hour);
                     finance_calendar.set(Calendar.MINUTE, minute);
-                    if (hour > base_hour || (hour == base_hour && minute > base_minute)) {
+                    if (hour > final_base_hour || (hour == final_base_hour && minute > final_base_minute)) {
                         // last day
                         finance_calendar.add(Calendar.DATE, -1);
                     }
 
-                    if (from_finance == null || from_finance.after(new Timestamp(finance_calendar.getTimeInMillis()))) {
-                        from_finance = new Timestamp(finance_calendar.getTimeInMillis());
-                    }
-                    if (to_finance == null || to_finance.before(new Timestamp(finance_calendar.getTimeInMillis()))) {
-                        to_finance = new Timestamp(finance_calendar.getTimeInMillis());
-                    }
-                }
-
-                List<FinanceBundle> existedFinanceBundleList = performanceService.getFinanceBundleList(from_finance, to_finance);
-                Map<String, FinanceBundle> existedFinanceBundleMap = new HashMap<String, FinanceBundle>();
-                for (FinanceBundle financeBundle : existedFinanceBundleList) {
-                    Calendar finance_calendar = Calendar.getInstance();
-                    finance_calendar.setTimeInMillis(financeBundle.getTime().getTime());
-                    String key = finance_calendar.get(Calendar.HOUR_OF_DAY) + "|" + finance_calendar.get(Calendar.MINUTE) + "|" + financeBundle.getClientPort() + "|" + financeBundle.getVendorPort() + "|" + financeBundle.getBundle() + "|" + financeBundle.getNode() + "|";
-                    if (financeBundle.getIncome() != 0) {
-                        existedFinanceBundleMap.put(key + "I", financeBundle);
-                    }
-                    if (financeBundle.getOutcomeUpstream() != 0) {
-                        existedFinanceBundleMap.put(key + "U", financeBundle);
-                    }
-                    if (financeBundle.getOutcomeRebate() != 0) {
-                        existedFinanceBundleMap.put(key + "R", financeBundle);
-                    }
-                    if (financeBundle.getOutcomeDownstream() != 0) {
-                        existedFinanceBundleMap.put(key + "D", financeBundle);
-                    }
-                }
-
-                for (String key : keys_finance) {
-                    int hour = Integer.parseInt(key.substring(2, 4));
-                    int minute = Integer.parseInt(key.substring(4, 6));
-
-                    if (hour == base_hour && minute == base_minute) {
-                        continue;
-                    }
-
-                    Calendar finance_calendar = (Calendar) base_calendar.clone();
-                    finance_calendar.set(Calendar.HOUR_OF_DAY, hour);
-                    finance_calendar.set(Calendar.MINUTE, minute);
-                    if (hour > base_hour || (hour == base_hour && minute > base_minute)) {
-                        // last day
-                        finance_calendar.add(Calendar.DATE, -1);
-                    }
-
-                    Integer clientPort = Integer.parseInt(key.split(":")[1]);
-                    Integer vendorPort = Integer.parseInt(key.split(":")[2]);
-                    String type = key.substring(1, 2);
-                    String bundle = "UNKNOWN";
-                    if (key.split(":").length == 4) {
-                        bundle = key.split(":")[3];
-                    }
-
-                    if (existedFinanceBundleMap.containsKey(hour + "|" + minute + "|" + clientPort + "|" + vendorPort + "|" + bundle + "|" + node + "|" + type)) {
-                        continue;
-                    }
-
-                    Long value = Double.valueOf(redisTemplate.opsForValue().get(key)).longValue();
-
-                    String financeKey = hour + "|" + minute + "|" + clientPort + "|" + vendorPort + "|" + node;
-                    if (!financeMap.containsKey(financeKey)) {
-                        Finance finance = new Finance(clientPort, vendorPort, node, new Timestamp(finance_calendar.getTimeInMillis()));
-
-                        financeList.add(finance);
-                        financeMap.put(financeKey, finance);
-                    }
-                    Finance finance = financeMap.get(financeKey);
-                    if (type.equals("I")) {
-                        finance.setIncome(finance.getIncome() + value);
-                    }
-                    if (type.equals("U")) {
-                        finance.setOutcomeUpstream(finance.getOutcomeUpstream() + value);
-                    }
-                    if (type.equals("R")) {
-                        finance.setOutcomeRebate(finance.getOutcomeRebate() + value);
-                    }
-                    if (type.equals("D")) {
-                        finance.setOutcomeDownstream(finance.getOutcomeDownstream() + value);
-                    }
-
-                    String financeBundleKey = hour + "|" + minute + "|" + clientPort + "|" + vendorPort + "|" + bundle + "|" + node;
-                    if (!financeBundleMap.containsKey(financeBundleKey)) {
-                        FinanceBundle financeBundle = new FinanceBundle(clientPort, vendorPort, bundle, node, new Timestamp(finance_calendar.getTimeInMillis()));
-
-                        financeBundleList.add(financeBundle);
-                        financeBundleMap.put(financeBundleKey, financeBundle);
-                    }
-                    FinanceBundle financeBundle = financeBundleMap.get(financeBundleKey);
-                    if (type.equals("I")) {
-                        financeBundle.setIncome(financeBundle.getIncome() + value);
-                    }
-                    if (type.equals("U")) {
-                        financeBundle.setOutcomeUpstream(financeBundle.getOutcomeUpstream() + value);
-                    }
-                    if (type.equals("R")) {
-                        financeBundle.setOutcomeRebate(financeBundle.getOutcomeRebate() + value);
-                    }
-                    if (type.equals("D")) {
-                        financeBundle.setOutcomeDownstream(financeBundle.getOutcomeDownstream() + value);
+                    synchronized (from_finance) {
+                        if (from_finance.after(new Timestamp(finance_calendar.getTimeInMillis()))) {
+                            from_finance.setTime(finance_calendar.getTimeInMillis());
+                        }
+                        if (to_finance.before(new Timestamp(finance_calendar.getTimeInMillis()))) {
+                            to_finance.setTime(finance_calendar.getTimeInMillis());
+                        }
                     }
                 }
             } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+
+        List<Performance> existedPerformanceList = performanceService.getPerformanceList(from_performance, to_performance);
+        Map<String, Performance> existedPerformanceMap = new HashMap<String, Performance>();
+        for (Performance performance : existedPerformanceList) {
+            Calendar performance_calendar = Calendar.getInstance();
+            performance_calendar.setTimeInMillis(performance.getTime().getTime());
+            String key = performance_calendar.get(Calendar.HOUR_OF_DAY) + "|" + performance_calendar.get(Calendar.MINUTE) + "|" + performance.getClientPort() + "|" + performance.getVendorPort() + "|" + performance.getNode() + "|" + performance.getEvent();
+            existedPerformanceMap.put(key, performance);
+        }
+
+        List<PerformanceBundle> existedPerformanceBundleList = performanceService.getPerformanceBundleList(from_performance, to_performance);
+        Map<String, PerformanceBundle> existedPerformanceBundleMap = new HashMap<String, PerformanceBundle>();
+        for (PerformanceBundle performanceBundle : existedPerformanceBundleList) {
+            Calendar performance_calendar = Calendar.getInstance();
+            performance_calendar.setTimeInMillis(performanceBundle.getTime().getTime());
+            String key = performance_calendar.get(Calendar.HOUR_OF_DAY) + "|" + performance_calendar.get(Calendar.MINUTE) + "|" + performanceBundle.getClientPort() + "|" + performanceBundle.getVendorPort() + "|" + performanceBundle.getBundle() + "|" + performanceBundle.getNode() + "|" + performanceBundle.getEvent();
+            existedPerformanceBundleMap.put(key, performanceBundle);
+        }
+
+        List<Finance> existedFinanceList = performanceService.getFinanceList(from_finance, to_finance);
+        Map<String, Finance> existedFinanceMap = new HashMap<String, Finance>();
+        for (Finance finance : existedFinanceList) {
+            Calendar finance_calendar = Calendar.getInstance();
+            finance_calendar.setTimeInMillis(finance.getTime().getTime());
+            String key = finance_calendar.get(Calendar.HOUR_OF_DAY) + "|" + finance_calendar.get(Calendar.MINUTE) + "|" + finance.getClientPort() + "|" + finance.getVendorPort() + "|" + finance.getNode() + "|";
+            if (finance.getIncome() != 0) {
+                existedFinanceMap.put(key + "I", finance);
+            }
+            if (finance.getOutcomeUpstream() != 0) {
+                existedFinanceMap.put(key + "U", finance);
+            }
+            if (finance.getOutcomeRebate() != 0) {
+                existedFinanceMap.put(key + "R", finance);
+            }
+            if (finance.getOutcomeDownstream() != 0) {
+                existedFinanceMap.put(key + "D", finance);
             }
         }
+
+        List<FinanceBundle> existedFinanceBundleList = performanceService.getFinanceBundleList(from_finance, to_finance);
+        Map<String, FinanceBundle> existedFinanceBundleMap = new HashMap<String, FinanceBundle>();
+        for (FinanceBundle financeBundle : existedFinanceBundleList) {
+            Calendar finance_calendar = Calendar.getInstance();
+            finance_calendar.setTimeInMillis(financeBundle.getTime().getTime());
+            String key = finance_calendar.get(Calendar.HOUR_OF_DAY) + "|" + finance_calendar.get(Calendar.MINUTE) + "|" + financeBundle.getClientPort() + "|" + financeBundle.getVendorPort() + "|" + financeBundle.getBundle() + "|" + financeBundle.getNode() + "|";
+            if (financeBundle.getIncome() != 0) {
+                existedFinanceBundleMap.put(key + "I", financeBundle);
+            }
+            if (financeBundle.getOutcomeUpstream() != 0) {
+                existedFinanceBundleMap.put(key + "U", financeBundle);
+            }
+            if (financeBundle.getOutcomeRebate() != 0) {
+                existedFinanceBundleMap.put(key + "R", financeBundle);
+            }
+            if (financeBundle.getOutcomeDownstream() != 0) {
+                existedFinanceBundleMap.put(key + "D", financeBundle);
+            }
+        }
+
+        serverList.parallelStream().forEach(server -> {
+            try {
+                if (performanceDataMap.containsKey(server.getNode())) {
+                    for (String key : performanceDataMap.get(server.getNode()).keySet()) {
+                        int hour = Integer.parseInt(key.substring(1, 3));
+                        int minute = Integer.parseInt(key.substring(3, 5));
+                        minute = minute / performanceInterval * performanceInterval;
+
+                        if (hour == final_base_hour && minute == final_base_minute) {
+                            continue;
+                        }
+
+                        Calendar performance_calendar = (Calendar) base_calendar.clone();
+                        performance_calendar.set(Calendar.HOUR_OF_DAY, hour);
+                        performance_calendar.set(Calendar.MINUTE, minute);
+
+                        if (hour > final_base_hour || (hour == final_base_hour && minute > final_base_minute)) {
+                            // last day
+                            performance_calendar.add(Calendar.DATE, -1);
+                        }
+
+                        Integer clientPort = Integer.parseInt(key.split(":")[1]);
+                        Integer vendorPort = Integer.parseInt(key.split(":")[2]);
+                        String bundle = "UNKNOWN";
+                        String event = null;
+                        if (key.split(":").length == 5) {
+                            bundle = key.split(":")[3];
+                            event = key.split(":")[4];
+                        } else {
+                            event = key.split(":")[3];
+                        }
+
+                        Integer value = Integer.parseInt(performanceDataMap.get(server.getNode()).get(key));
+
+                        String performanceKey = hour + "|" + minute + "|" + clientPort + "|" + vendorPort + "|" + server.getNode() + "|" + event;
+                        if (!existedPerformanceMap.containsKey(performanceKey)) {
+                            synchronized (performanceMap) {
+                                if (!performanceMap.containsKey(performanceKey)) {
+                                    Performance performance = new Performance(clientPort, vendorPort, server.getNode(), new Timestamp(performance_calendar.getTimeInMillis()), event);
+
+                                    performanceList.add(performance);
+                                    performanceMap.put(performanceKey, performance);
+                                }
+                                Performance performance = performanceMap.get(performanceKey);
+                                performance.setAmount(performance.getAmount() + value);
+                            }
+                        }
+
+                        String performanceBundleKey = hour + "|" + minute + "|" + clientPort + "|" + vendorPort + "|" + bundle + "|" + server.getNode() + "|" + event;
+                        if (!existedPerformanceBundleMap.containsKey(performanceBundleKey)) {
+                            synchronized (performanceBundleMap) {
+                                if (!performanceBundleMap.containsKey(performanceBundleKey)) {
+                                    PerformanceBundle performanceBundle = new PerformanceBundle(clientPort, vendorPort, bundle, server.getNode(), new Timestamp(performance_calendar.getTimeInMillis()), event);
+
+                                    performanceBundleList.add(performanceBundle);
+                                    performanceBundleMap.put(performanceBundleKey, performanceBundle);
+                                }
+                                PerformanceBundle performanceBundle = performanceBundleMap.get(performanceBundleKey);
+                                performanceBundle.setAmount(performanceBundle.getAmount() + value);
+                            }
+                        }
+                    }
+                }
+
+                if (trackingDataMap.containsKey(server.getNode())) {
+                    for (String key : trackingDataMap.get(server.getNode()).keySet()) {
+                        int hour = Integer.parseInt(key.substring(2, 4));
+                        int minute = Integer.parseInt(key.substring(4, 6));
+                        minute = minute / performanceInterval * performanceInterval;
+
+                        if (hour == final_base_hour && minute == final_base_minute) {
+                            continue;
+                        }
+
+                        Calendar tracking_calendar = (Calendar) base_calendar.clone();
+                        tracking_calendar.set(Calendar.HOUR_OF_DAY, hour);
+                        tracking_calendar.set(Calendar.MINUTE, minute);
+
+                        if (hour > final_base_hour || (hour == final_base_hour && minute > final_base_minute)) {
+                            // last day
+                            tracking_calendar.add(Calendar.DATE, -1);
+                        }
+
+                        Integer connection = Integer.parseInt(key.split(":")[1]);
+                        String bundle = "UNKNOWN";
+                        String event = "";
+                        Integer eventCode = 0;
+                        if (key.split(":").length == 4) {
+                            bundle = key.split(":")[2];
+                            eventCode = Integer.parseInt(key.split(":")[3]);
+                        } else {
+                            eventCode = Integer.parseInt(key.split(":")[2]);
+                        }
+                        switch (eventCode) {
+                            case 501:
+                                event = Performance.TRACKING_IMPRESSION;
+                                break;
+                            case 502:
+                                event = Performance.TRACKING_CLICK;
+                                break;
+                            default:
+                                event = Performance.TRACKING_GENERAL;
+                                break;
+                        }
+
+                        Integer value = Integer.parseInt(trackingDataMap.get(server.getNode()).get(key));
+
+                        if (connectionMap.containsKey(connection)) {
+                            String performanceKey = hour + "|" + minute + "|" + connectionMap.get(connection).getClientPort().getId() + "|" + connectionMap.get(connection).getVendorPort().getId() + "|" + server.getNode() + "|" + event;
+                            if (!existedPerformanceMap.containsKey(performanceKey)) {
+                                synchronized (performanceMap) {
+                                    if (!performanceMap.containsKey(performanceKey)) {
+                                        Performance performance = new Performance(connectionMap.get(connection).getClientPort().getId(), connectionMap.get(connection).getVendorPort().getId(), server.getNode(), new Timestamp(tracking_calendar.getTimeInMillis()), event);
+
+                                        performanceList.add(performance);
+                                        performanceMap.put(performanceKey, performance);
+                                    }
+                                    Performance performance = performanceMap.get(performanceKey);
+                                    performance.setAmount(performance.getAmount() + value);
+                                }
+                            }
+
+                            String performanceBundleKey = hour + "|" + minute + "|" + connectionMap.get(connection).getClientPort().getId() + "|" + connectionMap.get(connection).getVendorPort().getId() + "|" + bundle + "|" + server.getNode() + "|" + event;
+                            if (!existedPerformanceBundleMap.containsKey(performanceBundleKey)) {
+                                synchronized (performanceBundleMap) {
+                                    if (!performanceBundleMap.containsKey(performanceBundleKey)) {
+                                        PerformanceBundle performanceBundle = new PerformanceBundle(connectionMap.get(connection).getClientPort().getId(), connectionMap.get(connection).getVendorPort().getId(), bundle, server.getNode(), new Timestamp(tracking_calendar.getTimeInMillis()), event);
+
+                                        performanceBundleList.add(performanceBundle);
+                                        performanceBundleMap.put(performanceBundleKey, performanceBundle);
+                                    }
+                                    PerformanceBundle performanceBundle = performanceBundleMap.get(performanceBundleKey);
+                                    performanceBundle.setAmount(performanceBundle.getAmount() + value);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (financeDataMap.containsKey(server.getNode())) {
+                    for (String key : financeDataMap.get(server.getNode()).keySet()) {
+                        int hour = Integer.parseInt(key.substring(2, 4));
+                        int minute = Integer.parseInt(key.substring(4, 6));
+
+                        if (hour == final_base_hour && minute == final_base_minute) {
+                            continue;
+                        }
+
+                        Calendar finance_calendar = (Calendar) base_calendar.clone();
+                        finance_calendar.set(Calendar.HOUR_OF_DAY, hour);
+                        finance_calendar.set(Calendar.MINUTE, minute);
+                        if (hour > final_base_hour || (hour == final_base_hour && minute > final_base_minute)) {
+                            // last day
+                            finance_calendar.add(Calendar.DATE, -1);
+                        }
+
+                        Integer clientPort = Integer.parseInt(key.split(":")[1]);
+                        Integer vendorPort = Integer.parseInt(key.split(":")[2]);
+                        String type = key.substring(1, 2);
+                        String bundle = "UNKNOWN";
+                        if (key.split(":").length == 4) {
+                            bundle = key.split(":")[3];
+                        }
+
+                        Long value = Double.valueOf(financeDataMap.get(server.getNode()).get(key)).longValue();
+
+                        String financeKey = hour + "|" + minute + "|" + clientPort + "|" + vendorPort + "|" + server.getNode();
+                        if (!existedFinanceMap.containsKey(financeKey + "|" + type)) {
+                            synchronized (financeMap) {
+                                if (!financeMap.containsKey(financeKey)) {
+                                    Finance finance = new Finance(clientPort, vendorPort, server.getNode(), new Timestamp(finance_calendar.getTimeInMillis()));
+
+                                    financeList.add(finance);
+                                    financeMap.put(financeKey, finance);
+                                }
+                                Finance finance = financeMap.get(financeKey);
+                                if (type.equals("I")) {
+                                    finance.setIncome(finance.getIncome() + value);
+                                }
+                                if (type.equals("U")) {
+                                    finance.setOutcomeUpstream(finance.getOutcomeUpstream() + value);
+                                }
+                                if (type.equals("R")) {
+                                    finance.setOutcomeRebate(finance.getOutcomeRebate() + value);
+                                }
+                                if (type.equals("D")) {
+                                    finance.setOutcomeDownstream(finance.getOutcomeDownstream() + value);
+                                }
+                            }
+                        }
+
+                        String financeBundleKey = hour + "|" + minute + "|" + clientPort + "|" + vendorPort + "|" + bundle + "|" + server.getNode();
+                        if (!existedFinanceBundleMap.containsKey(financeBundleKey + "|" + type)) {
+                            synchronized (financeBundleMap) {
+                                if (!financeBundleMap.containsKey(financeBundleKey)) {
+                                    FinanceBundle financeBundle = new FinanceBundle(clientPort, vendorPort, bundle, server.getNode(), new Timestamp(finance_calendar.getTimeInMillis()));
+
+                                    financeBundleList.add(financeBundle);
+                                    financeBundleMap.put(financeBundleKey, financeBundle);
+                                }
+                                FinanceBundle financeBundle = financeBundleMap.get(financeBundleKey);
+                                if (type.equals("I")) {
+                                    financeBundle.setIncome(financeBundle.getIncome() + value);
+                                }
+                                if (type.equals("U")) {
+                                    financeBundle.setOutcomeUpstream(financeBundle.getOutcomeUpstream() + value);
+                                }
+                                if (type.equals("R")) {
+                                    financeBundle.setOutcomeRebate(financeBundle.getOutcomeRebate() + value);
+                                }
+                                if (type.equals("D")) {
+                                    financeBundle.setOutcomeDownstream(financeBundle.getOutcomeDownstream() + value);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
 
         performanceService.addAllPerformance(performanceList);
         performanceService.addAllPerformanceBundle(performanceBundleList);
