@@ -2,17 +2,21 @@ package cc.tonyhook.carambola.backend.service.ad;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.DataFormat;
@@ -23,6 +27,20 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.connection.RedisConnection;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.data.redis.connection.RedisStringCommands.SetOption;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.connection.lettuce.LettucePoolingClientConfiguration;
+import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ScanOptions;
+import org.springframework.data.redis.core.types.Expiration;
+import org.springframework.data.redis.serializer.GenericToStringSerializer;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
@@ -73,6 +91,7 @@ import cc.tonyhook.carambola.backend.entity.ad.VendorMedia;
 import cc.tonyhook.carambola.backend.entity.ad.VendorPort;
 import cc.tonyhook.carambola.backend.service.shared.CellService;
 import cc.tonyhook.carambola.backend.service.shared.Query;
+import io.lettuce.core.api.StatefulConnection;
 
 @Service
 public class PerformanceService {
@@ -152,47 +171,379 @@ public class PerformanceService {
         this.partnerService = partnerService;
     }
 
-    public List<Performance> addAllPerformance(List<Performance> newPerformanceList) {
-        List<Performance> updatedPerformanceList = performanceRepository.saveAll(newPerformanceList);
+    @Value("${app.performance-repository}")
+    private String performanceCacheRepository;
+    @Value("${app.performance-interval:5}")
+    private Integer performanceInterval;
 
-        return updatedPerformanceList;
+    private RedisConnectionFactory redisConnectionFactory = null;
+
+    private RedisConnectionFactory redisConnectionFactory() {
+        if (redisConnectionFactory != null) {
+            return redisConnectionFactory;
+        }
+
+        RedisStandaloneConfiguration redisStandaloneConfiguration = new RedisStandaloneConfiguration(performanceCacheRepository);
+
+        GenericObjectPoolConfig<StatefulConnection<?, ?>> poolConfig = new GenericObjectPoolConfig<>();
+        poolConfig.setMaxTotal(20);
+        poolConfig.setMaxIdle(10);
+        poolConfig.setMinIdle(5);
+
+        LettucePoolingClientConfiguration clientConfig = LettucePoolingClientConfiguration.builder()
+            .poolConfig(poolConfig)
+            .commandTimeout(Duration.ofSeconds(60))
+            .build();
+
+        LettuceConnectionFactory factory = new LettuceConnectionFactory(redisStandaloneConfiguration, clientConfig);
+        factory.afterPropertiesSet();
+        this.redisConnectionFactory = factory;
+
+        return redisConnectionFactory;
+    }
+
+    private RedisTemplate<String, String> redisTemplate() {
+        RedisTemplate<String, String> template = new RedisTemplate<>();
+        template.setConnectionFactory(redisConnectionFactory());
+
+        StringRedisSerializer stringRedisSerializer = new StringRedisSerializer();
+        GenericToStringSerializer<String> genericToStringSerializer = new GenericToStringSerializer<String>(String.class);
+        template.setKeySerializer(stringRedisSerializer);
+        template.setHashKeySerializer(stringRedisSerializer);
+        template.setValueSerializer(genericToStringSerializer);
+        template.afterPropertiesSet();
+
+        return template;
+    }
+
+    private Map<String, String> batchGetData(String prefix) {
+        RedisTemplate<String, String> redisTemplate = redisTemplate();
+
+        ScanOptions options = ScanOptions.scanOptions()
+            .match(prefix + "*")
+            .count(5000)
+            .build();
+
+        Map<String, String> result = new HashMap<String, String>();
+
+        redisTemplate.execute((RedisCallback<Void>) connection -> {
+            try (Cursor<byte[]> cursor = connection.keyCommands().scan(options)) {
+                List<byte[]> batch = new ArrayList<byte[]>(5000);
+                while (cursor.hasNext()) {
+                    batch.add(cursor.next());
+
+                    if (batch.size() >= 5000) {
+                        pipelineFetch(connection, batch, result);
+                        batch.clear();
+                        Thread.sleep(1);
+                    }
+                }
+
+                if (!batch.isEmpty()) {
+                    pipelineFetch(connection, batch, result);
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+
+            return null;
+        });
+
+        return result;
+    }
+
+    private void pipelineFetch(
+            RedisConnection connection,
+            List<byte[]> batch,
+            Map<String, String> result) {
+        connection.openPipeline();
+
+        for (byte[] key : batch) {
+            connection.stringCommands().get(key);
+        }
+
+        List<Object> values = connection.closePipeline();
+
+        for (int i = 0; i < batch.size(); i++) {
+            if (values.get(i) != null) {
+                result.put(new String(batch.get(i)), new String((byte[]) values.get(i), StandardCharsets.UTF_8));
+            }
+        }
+    }
+
+    private void batchSetData(Map<String, String> data) {
+        RedisTemplate<String, String> redisTemplate = redisTemplate();
+
+        redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            data.forEach((k, v) -> {
+                connection.stringCommands().set(
+                    k.getBytes(StandardCharsets.UTF_8),
+                    v.getBytes(StandardCharsets.UTF_8),
+                    Expiration.from(4, TimeUnit.HOURS),
+                    SetOption.UPSERT
+                );
+            });
+            return null;
+        });
+    }
+
+    public List<Performance> addAllPerformance(List<Performance> newPerformanceList) {
+        // List<Performance> updatedPerformanceList = performanceRepository.saveAll(newPerformanceList);
+
+        Calendar performance_calendar = Calendar.getInstance();
+        Map<String, String> performanceData = new HashMap<String, String>();
+
+        for (Performance performance : newPerformanceList) {
+            performance_calendar.setTimeInMillis(performance.getTime().getTime());
+            String key = "LP:" + performance.getTime().getTime() + "|" + performance.getClientPort() + "|" + performance.getVendorPort() + "|" + performance.getNode() + "|" + performance.getEvent();
+            String amount = performance.getAmount().toString();
+            performanceData.put(key, amount);
+        }
+
+        batchSetData(performanceData);
+
+        return newPerformanceList;
     }
 
     public List<PerformanceBundle> addAllPerformanceBundle(List<PerformanceBundle> newPerformanceBundleList) {
-        List<PerformanceBundle> updatedPerformanceBundleList = performanceBundleRepository.saveAll(newPerformanceBundleList);
+        // List<PerformanceBundle> updatedPerformanceBundleList = performanceBundleRepository.saveAll(newPerformanceBundleList);
 
-        return updatedPerformanceBundleList;
+        Calendar performance_calendar = Calendar.getInstance();
+        Map<String, String> performanceBundleData = new HashMap<String, String>();
+
+        for (PerformanceBundle performanceBundle : newPerformanceBundleList) {
+            performance_calendar.setTimeInMillis(performanceBundle.getTime().getTime());
+            String key = "LPB:" + performanceBundle.getTime().getTime() + "|" + performanceBundle.getClientPort() + "|" + performanceBundle.getVendorPort() + "|" + performanceBundle.getBundle() + "|" + performanceBundle.getNode() + "|" + performanceBundle.getEvent();
+            String amount = performanceBundle.getAmount().toString();
+            performanceBundleData.put(key, amount);
+        }
+
+        batchSetData(performanceBundleData);
+
+        return newPerformanceBundleList;
     }
 
     public List<Performance> getPerformanceList(Timestamp start, Timestamp end) {
         List<Performance> performanceList = performanceRepository.findByTimeBetween(start, end);
+
+        Calendar base_calendar = Calendar.getInstance();
+        int base_hour = base_calendar.get(Calendar.HOUR_OF_DAY);
+        int base_minute = base_calendar.get(Calendar.MINUTE);
+        base_minute = base_minute / performanceInterval * performanceInterval;
+        base_calendar.set(Calendar.MINUTE, base_minute);
+        base_calendar.set(Calendar.SECOND, 0);
+        base_calendar.set(Calendar.MILLISECOND, 0);
+
+        Map<String, String> performanceData = batchGetData("LP:");
+        for (String key : performanceData.keySet()) {
+            String value = performanceData.get(key);
+            if (value != null) {
+                try {
+                    String[] fields = key.substring(3).split("\\|");
+                    Timestamp time = new Timestamp(Long.parseLong(fields[0]));
+
+                    if (time.before(start) || time.after(end)) {
+                        continue;
+                    }
+
+                    Calendar timeCalendar = Calendar.getInstance();
+                    timeCalendar.setTimeInMillis(time.getTime());
+                    int hour = timeCalendar.get(Calendar.HOUR_OF_DAY);
+                    int minute = timeCalendar.get(Calendar.MINUTE);
+                    minute = minute / performanceInterval * performanceInterval;
+
+                    if (hour == base_hour && minute == base_minute) {
+                        continue;
+                    }
+
+                    Performance redisPerformance = new Performance(Integer.parseInt(fields[1]), Integer.parseInt(fields[2]), Integer.parseInt(fields[3]), time, fields[4]);
+                    redisPerformance.setAmount(Long.parseLong(value));
+                    performanceList.add(redisPerformance);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
         return performanceList;
     }
 
     public List<PerformanceBundle> getPerformanceBundleList(Timestamp start, Timestamp end) {
         List<PerformanceBundle> performanceBundleList = performanceBundleRepository.findByTimeBetween(start, end);
+
+        Calendar base_calendar = Calendar.getInstance();
+        int base_hour = base_calendar.get(Calendar.HOUR_OF_DAY);
+        int base_minute = base_calendar.get(Calendar.MINUTE);
+        base_minute = base_minute / performanceInterval * performanceInterval;
+        base_calendar.set(Calendar.MINUTE, base_minute);
+        base_calendar.set(Calendar.SECOND, 0);
+        base_calendar.set(Calendar.MILLISECOND, 0);
+
+        Map<String, String> performanceData = batchGetData("LPB:");
+        for (String key : performanceData.keySet()) {
+            String value = performanceData.get(key);
+            if (value != null) {
+                try {
+                    String[] fields = key.substring(4).split("\\|");
+                    Timestamp time = new Timestamp(Long.parseLong(fields[0]));
+
+                    if (time.before(start) || time.after(end)) {
+                        continue;
+                    }
+
+                    Calendar timeCalendar = Calendar.getInstance();
+                    timeCalendar.setTimeInMillis(time.getTime());
+                    int hour = timeCalendar.get(Calendar.HOUR_OF_DAY);
+                    int minute = timeCalendar.get(Calendar.MINUTE);
+                    minute = minute / performanceInterval * performanceInterval;
+
+                    if (hour == base_hour && minute == base_minute) {
+                        continue;
+                    }
+
+                    PerformanceBundle redisPerformanceBundle = new PerformanceBundle(Integer.parseInt(fields[1]), Integer.parseInt(fields[2]), fields[3], Integer.parseInt(fields[4]), time, fields[5]);
+                    redisPerformanceBundle.setAmount(Long.parseLong(value));
+                    performanceBundleList.add(redisPerformanceBundle);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
         return performanceBundleList;
     }
 
     public List<Finance> addAllFinance(List<Finance> newFinanceList) {
-        List<Finance> updatedFinanceList = financeRepository.saveAll(newFinanceList);
+        // List<Finance> updatedFinanceList = financeRepository.saveAll(newFinanceList);
 
-        return updatedFinanceList;
+        Calendar finance_calendar = Calendar.getInstance();
+        Map<String, String> financeData = new HashMap<String, String>();
+
+        for (Finance finance : newFinanceList) {
+            finance_calendar.setTimeInMillis(finance.getTime().getTime());
+            String key = "LF:" + finance.getTime().getTime() + "|" + finance.getClientPort() + "|" + finance.getVendorPort() + "|" + finance.getNode();
+            String amount = finance.getIncome().toString()+ "|" + finance.getOutcomeUpstream().toString() + "|" + finance.getOutcomeRebate().toString() + "|" + finance.getOutcomeDownstream().toString();
+            financeData.put(key, amount);
+        }
+
+        batchSetData(financeData);
+
+        return newFinanceList;
     }
 
     public List<FinanceBundle> addAllFinanceBundle(List<FinanceBundle> newFinanceBundleList) {
-        List<FinanceBundle> updatedFinanceBundleList = financeBundleRepository.saveAll(newFinanceBundleList);
+        // List<FinanceBundle> updatedFinanceBundleList = financeBundleRepository.saveAll(newFinanceBundleList);
 
-        return updatedFinanceBundleList;
+        Calendar finance_calendar = Calendar.getInstance();
+        Map<String, String> financeBundleData = new HashMap<String, String>();
+
+        for (FinanceBundle financeBundle : newFinanceBundleList) {
+            finance_calendar.setTimeInMillis(financeBundle.getTime().getTime());
+            String key = "LFB:" + financeBundle.getTime().getTime() + "|" + financeBundle.getClientPort() + "|" + financeBundle.getVendorPort() + "|" + financeBundle.getBundle() + "|" + financeBundle.getNode();
+            String amount = financeBundle.getIncome().toString()+ "|" + financeBundle.getOutcomeUpstream().toString() + "|" + financeBundle.getOutcomeRebate().toString() + "|" + financeBundle.getOutcomeDownstream().toString();
+            financeBundleData.put(key, amount);
+        }
+
+        batchSetData(financeBundleData);
+
+        return newFinanceBundleList;
     }
 
     public List<Finance> getFinanceList(Timestamp start, Timestamp end) {
         List<Finance> financeList = financeRepository.findByTimeBetween(start, end);
+
+        Calendar base_calendar = Calendar.getInstance();
+        int base_hour = base_calendar.get(Calendar.HOUR_OF_DAY);
+        int base_minute = base_calendar.get(Calendar.MINUTE);
+        base_minute = base_minute / performanceInterval * performanceInterval;
+        base_calendar.set(Calendar.MINUTE, base_minute);
+        base_calendar.set(Calendar.SECOND, 0);
+        base_calendar.set(Calendar.MILLISECOND, 0);
+
+        Map<String, String> financeData = batchGetData("LF:");
+        for (String key : financeData.keySet()) {
+            String value = financeData.get(key);
+            if (value != null) {
+                try {
+                    String[] fields = key.substring(3).split("\\|");
+                    String[] amounts = value.split("\\|");
+                    Timestamp time = new Timestamp(Long.parseLong(fields[0]));
+
+                    if (time.before(start) || time.after(end)) {
+                        continue;
+                    }
+
+                    Calendar timeCalendar = Calendar.getInstance();
+                    timeCalendar.setTimeInMillis(time.getTime());
+                    int hour = timeCalendar.get(Calendar.HOUR_OF_DAY);
+                    int minute = timeCalendar.get(Calendar.MINUTE);
+                    minute = minute / performanceInterval * performanceInterval;
+
+                    if (hour == base_hour && minute == base_minute) {
+                        continue;
+                    }
+
+                    Finance redisFinance = new Finance(Integer.parseInt(fields[1]), Integer.parseInt(fields[2]), Integer.parseInt(fields[3]), time);
+                    redisFinance.setIncome(Long.valueOf(amounts[0]));
+                    redisFinance.setOutcomeUpstream(Long.valueOf(amounts[1]));
+                    redisFinance.setOutcomeRebate(Long.valueOf(amounts[2]));
+                    redisFinance.setOutcomeDownstream(Long.valueOf(amounts[3]));
+                    financeList.add(redisFinance);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
         return financeList;
     }
 
     public List<FinanceBundle> getFinanceBundleList(Timestamp start, Timestamp end) {
         List<FinanceBundle> financeBundleList = financeBundleRepository.findByTimeBetween(start, end);
+
+        Calendar base_calendar = Calendar.getInstance();
+        int base_hour = base_calendar.get(Calendar.HOUR_OF_DAY);
+        int base_minute = base_calendar.get(Calendar.MINUTE);
+        base_minute = base_minute / performanceInterval * performanceInterval;
+        base_calendar.set(Calendar.MINUTE, base_minute);
+        base_calendar.set(Calendar.SECOND, 0);
+        base_calendar.set(Calendar.MILLISECOND, 0);
+
+        Map<String, String> financeBundleData = batchGetData("LFB:");
+        for (String key : financeBundleData.keySet()) {
+            String value = financeBundleData.get(key);
+            if (value != null) {
+                try {
+                    String[] fields = key.substring(4).split("\\|");
+                    String[] amounts = value.split("\\|");
+                    Timestamp time = new Timestamp(Long.parseLong(fields[0]));
+
+                    if (time.before(start) || time.after(end)) {
+                        continue;
+                    }
+
+                    Calendar timeCalendar = Calendar.getInstance();
+                    timeCalendar.setTimeInMillis(time.getTime());
+                    int hour = timeCalendar.get(Calendar.HOUR_OF_DAY);
+                    int minute = timeCalendar.get(Calendar.MINUTE);
+                    minute = minute / performanceInterval * performanceInterval;
+
+                    if (hour == base_hour && minute == base_minute) {
+                        continue;
+                    }
+
+                    FinanceBundle redisFinanceBundle = new FinanceBundle(Integer.parseInt(fields[1]), Integer.parseInt(fields[2]), fields[3], Integer.parseInt(fields[4]), time);
+                    redisFinanceBundle.setIncome(Long.valueOf(amounts[0]));
+                    redisFinanceBundle.setOutcomeUpstream(Long.valueOf(amounts[1]));
+                    redisFinanceBundle.setOutcomeRebate(Long.valueOf(amounts[2]));
+                    redisFinanceBundle.setOutcomeDownstream(Long.valueOf(amounts[3]));
+                    financeBundleList.add(redisFinanceBundle);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
         return financeBundleList;
     }
 
