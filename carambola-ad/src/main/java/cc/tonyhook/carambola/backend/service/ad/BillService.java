@@ -326,6 +326,10 @@ public class BillService {
                 keyFieldFound.add("代码位");
                 if (!header.containsKey("代码位")) {
                     header.put("代码位", index);
+                } else {
+                    if (caption.equals("广告位ID") && captions.get(header.get("代码位")).equals("广告位")) {
+                        header.put("代码位", index);
+                    }
                 }
             }
             if (caption.equals("广告位名称") || caption.equals("(E)placementName")) {
@@ -338,7 +342,7 @@ public class BillService {
                 keyFieldFound.add("收益");
                 header.put("收益", index);
             }
-            if (caption.equals("展现量") || caption.equals("曝光") || caption.equals("展示") || caption.equals("展示数") || caption.equals("曝光量") || caption.equals("曝光数") || caption.equals("最终展现") || caption.equals("有效曝光数") || caption.equals("(J)impressionNum") || caption.equals("展示次数") || caption.equals("下游展示")) {
+            if (caption.equals("展现量") || caption.equals("曝光") || caption.equals("展示") || caption.equals("展示数") || caption.equals("曝光量") || caption.equals("曝光数") || caption.equals("最终展现") || caption.equals("有效曝光数") || caption.equals("(J)impressionNum") || caption.equals("展示次数") || caption.equals("下游展示") || caption.equals("展现数")) {
                 keyFieldFound.add("展现量");
                 header.put("展现量", index);
             }
