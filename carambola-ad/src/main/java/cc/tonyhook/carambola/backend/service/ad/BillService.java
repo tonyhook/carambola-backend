@@ -318,34 +318,34 @@ public class BillService {
         for (Integer index : captions.keySet()) {
             String caption = captions.get(index);
 
-            if (caption.equals("时间") || caption.equals("日期") || caption.equals("日期时间") || caption.equals("收益日期")) {
+            if (caption.equals("时间") || caption.equals("日期") || caption.equals("日期时间") || caption.equals("收益日期") || caption.equals("(A)requestDate")) {
                 keyFieldFound.add("时间");
                 header.put("时间", index);
             }
-            if (caption.equals("代码位") || caption.equals("广告位ID") || caption.equals("广告位id") || caption.equals("广告位 Token") || caption.equals("广告位编号") || caption.equals("媒体广告位ID")) {
+            if (caption.equals("代码位") || caption.equals("广告位ID") || caption.equals("广告位id") || caption.equals("广告位 Token") || caption.equals("广告位编号") || caption.equals("媒体广告位ID") || caption.equals("(D)placementId")) {
                 keyFieldFound.add("代码位");
                 header.put("代码位", index);
             }
-            if (caption.equals("广告位名称")) {
+            if (caption.equals("广告位名称") || caption.equals("(E)placementName")) {
                 keyFieldFound.add("代码位候选");
                 header.put("代码位候选", index);
             }
-            if (caption.equals("收益") || caption.equals("预估收益") || caption.equals("预估收入") || caption.equals("收入") || caption.equals("预估收入(¥)") || caption.equals("收入(元)") || caption.equals("预估支出")) {
+            if (caption.equals("收益") || caption.equals("预估收益") || caption.equals("预估收入") || caption.equals("收入") || caption.equals("预估收入(¥)") || caption.equals("收入(元)") || caption.equals("预估支出") || caption.equals("(N)earnings")) {
                 keyFieldFound.add("收益");
                 header.put("收益", index);
             }
-            if (caption.equals("展现量") || caption.equals("曝光") || caption.equals("展示") || caption.equals("展示数") || caption.equals("曝光量") || caption.equals("曝光数") || caption.equals("最终展现") || caption.equals("有效曝光数")) {
+            if (caption.equals("展现量") || caption.equals("曝光") || caption.equals("展示") || caption.equals("展示数") || caption.equals("曝光量") || caption.equals("曝光数") || caption.equals("最终展现") || caption.equals("有效曝光数") || caption.equals("(J)impressionNum")) {
                 keyFieldFound.add("展现量");
                 header.put("展现量", index);
             }
-            if (caption.equals("点击量") || caption.equals("点击") || caption.equals("点击数") || caption.equals("有效点击数")) {
+            if (caption.equals("点击量") || caption.equals("点击") || caption.equals("点击数") || caption.equals("有效点击数") || caption.equals("(K)clickNum")) {
                 keyFieldFound.add("点击量");
                 header.put("点击量", index);
             }
-            if (caption.equals("请求量") || caption.equals("广告请求量") || caption.equals("请求") || caption.equals("请求数") || caption.equals("有效请求数") || caption.equals("媒体请求")) {
+            if (caption.equals("请求量") || caption.equals("广告请求量") || caption.equals("请求") || caption.equals("请求数") || caption.equals("有效请求数") || caption.equals("媒体请求") || caption.equals("(H)requestNum")) {
                 header.put("请求量", index);
             }
-            if (caption.equals("响应量") || caption.equals("广告返回量") || caption.equals("填充数") || caption.equals("返回量") || caption.equals("媒体填充")) {
+            if (caption.equals("响应量") || caption.equals("广告返回量") || caption.equals("填充数") || caption.equals("返回量") || caption.equals("媒体填充") || caption.equals("(I)responseNum")) {
                 header.put("响应量", index);
             }
         }
