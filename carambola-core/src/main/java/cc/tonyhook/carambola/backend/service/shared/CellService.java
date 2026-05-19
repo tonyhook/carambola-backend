@@ -1,7 +1,10 @@
 package cc.tonyhook.carambola.backend.service.shared;
 
 import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
+import java.util.Calendar;
+import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -11,6 +14,8 @@ import org.apache.poi.ss.usermodel.CellValue;
 import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -72,6 +77,158 @@ public class CellService {
         }
 
         return "";
+    }
+
+    public String getStringValue(Element cell) {
+        if (cell == null) {
+            return null;
+        }
+
+        return cell.text().replaceAll("[\\s\\u00A0]+", " ").strip();
+    }
+
+    public Long getLongValue(Cell cell) {
+        if (cell == null) {
+            return null;
+        }
+
+        return getLongValue(getStringValue(cell));
+    }
+
+    public Long getLongValue(Element cell) {
+        if (cell == null) {
+            return null;
+        }
+
+        return getLongValue(getStringValue(cell));
+    }
+
+    private Long getLongValue(String str) {
+                if (str == null || str.isBlank()) {
+            return null;
+        }
+
+        try {
+            return Math.round(Double.parseDouble(str.replace(",", "")));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public Calendar getDateValue(Cell cell, String timezone) {
+        if (cell == null) {
+            return null;
+        }
+
+        if (cell.getCellType() == CellType.STRING) {
+            return getDateValue(getStringValue(cell), timezone);
+        } else if (cell.getCellType() == CellType.NUMERIC) {
+            try {
+                SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+                TimeZone tz = TimeZone.getTimeZone(timezone);
+                df.setTimeZone(tz);
+
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    LocalDate date = cell.getLocalDateTimeCellValue().toLocalDate();
+                    Calendar calendar = Calendar.getInstance(tz);
+                    calendar.clear();
+                    calendar.set(date.getYear(), date.getMonthValue() - 1, date.getDayOfMonth());
+                    return calendar;
+                } else {
+                    long n = Math.round(cell.getNumericCellValue());
+                    String date = n / 10000 + "-" + n % 10000 / 100 + "-" + n % 100;
+                    long time = df.parse(date).getTime();
+                    Calendar calendar = Calendar.getInstance(tz);
+                    calendar.setTimeInMillis(time);
+                    return calendar;
+                }
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    public Calendar getDateValue(Element cell, String timezone) {
+        if (cell == null) {
+            return null;
+        }
+
+        return getDateValue(getStringValue(cell), timezone);
+    }
+
+    public Calendar getDateValue(String str, String timezone) {
+        if (str == null) {
+            return null;
+        }
+
+        SimpleDateFormat df1 = new SimpleDateFormat("yyyy/M/d");
+        SimpleDateFormat df2 = new SimpleDateFormat("yyyy-MM-dd");
+        SimpleDateFormat df3 = new SimpleDateFormat("yyyyMMdd");
+        TimeZone tz = TimeZone.getTimeZone(timezone);
+        df1.setTimeZone(tz);
+        df2.setTimeZone(tz);
+        df3.setTimeZone(tz);
+
+        try {
+            long time = df1.parse(str).getTime();
+            Calendar calendar = Calendar.getInstance(tz);
+            calendar.setTimeInMillis(time);
+            return calendar;
+        } catch (Exception e1) {
+            try {
+                long time = df2.parse(str).getTime();
+                Calendar calendar = Calendar.getInstance(tz);
+                calendar.setTimeInMillis(time);
+                return calendar;
+            } catch (Exception e2) {
+                try {
+                    long time = df3.parse(str).getTime();
+                    Calendar calendar = Calendar.getInstance(tz);
+                    calendar.setTimeInMillis(time);
+                    return calendar;
+                } catch (Exception e3) {
+                    return null;
+                }
+            }
+        }
+    }
+
+    public Double getDoubleValue(Cell cell) {
+        if (cell == null) {
+            return null;
+        }
+
+        return getDoubleValue(getStringValue(cell));
+    }
+
+    public Double getDoubleValue(Element cell) {
+        if (cell == null) {
+            return null;
+        }
+
+        return getDoubleValue(getStringValue(cell));
+    }
+
+    private Double getDoubleValue(String str) {
+        if (str == null || str.isBlank()) {
+            return null;
+        }
+
+        try {
+            return Double.parseDouble(str.replace(",", ""));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public Element getHtmlCell(Elements cells, Integer index) {
+        if (index == null || index < 0 || index >= cells.size()) {
+            return null;
+        }
+
+        return cells.get(index);
     }
 
     public String getExcelColumnLetter(int column) {

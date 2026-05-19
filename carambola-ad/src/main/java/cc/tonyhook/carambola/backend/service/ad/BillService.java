@@ -1,6 +1,7 @@
 package cc.tonyhook.carambola.backend.service.ad;
 
 import java.io.ByteArrayOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Timestamp;
@@ -21,14 +22,16 @@ import java.util.stream.Collectors;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
-import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DataFormat;
-import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -138,222 +141,25 @@ public class BillService {
                 return node;
             }
             String fileType = filename.substring(filename.lastIndexOf(".") + 1, filename.length());
-            InputStream inputStream = upload.getInputStream();
+            byte[] bytes = upload.getBytes();
             Workbook workbook = null;
 
-            if (fileType.equalsIgnoreCase("XLS")) {
-                workbook = new HSSFWorkbook(inputStream);
-            } else if (fileType.equalsIgnoreCase("XLSX")) {
-                workbook = new XSSFWorkbook(inputStream);
+            if (isHtmlBillFile(bytes)) {
+                billList.addAll(parseBill(bytes, timezone));
             } else {
-                node.put("uploaded", -1);
-                return node;
-            }
+                if (fileType.equalsIgnoreCase("XLS")) {
+                    workbook = new HSSFWorkbook(new ByteArrayInputStream(bytes));
+                } else if (fileType.equalsIgnoreCase("XLSX")) {
+                    workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes));
+                }
 
-            for (int si = 0; si < workbook.getNumberOfSheets(); si++) {
-                Sheet sheet = workbook.getSheetAt(si);
-
-                List<String> keyFields = Arrays.asList("时间", "代码位", "收益", "展现量", "点击量");
-                List<String> keyFieldsCandidate = Arrays.asList("时间", "代码位候选", "收益", "展现量", "点击量");
-
-                boolean headerRowFound = false;
-                Map<String, Integer> header = new HashMap<String, Integer>();
-
-                for (int ri = sheet.getFirstRowNum(); ri <= sheet.getLastRowNum(); ri++) {
-                    Row row = sheet.getRow(ri);
-                    if (row == null) {
-                        continue;
-                    }
-
-                    if (!headerRowFound) {
-                        header.clear();
-                        Set<String> keyFieldFound = new HashSet<String>();
-                        for (int ci = row.getFirstCellNum(); ci < row.getLastCellNum(); ci++) {
-                            if (row.getCell(ci) == null) {
-                                continue;
-                            }
-
-                            String caption = cellService.getStringValue(row.getCell(ci));
-
-                            if (caption.equals("时间") || caption.equals("日期") || caption.equals("日期时间") || caption.equals("收益日期")) {
-                                keyFieldFound.add("时间");
-                                header.put("时间", ci);
-                            }
-                            if (caption.equals("代码位") || caption.equals("广告位ID") || caption.equals("广告位id") || caption.equals("广告位 Token") || caption.equals("广告位编号") || caption.equals("媒体广告位ID")) {
-                                keyFieldFound.add("代码位");
-                                header.put("代码位", ci);
-                            }
-                            if (caption.equals("广告位名称")) {
-                                keyFieldFound.add("代码位候选");
-                                header.put("代码位候选", ci);
-                            }
-                            if (caption.equals("收益") || caption.equals("预估收益") || caption.equals("预估收入") || caption.equals("收入") || caption.equals("预估收入(¥)") || caption.equals("收入(元)") || caption.equals("预估支出")) {
-                                keyFieldFound.add("收益");
-                                header.put("收益", ci);
-                            }
-                            if (caption.equals("展现量") || caption.equals("曝光") || caption.equals("展示") || caption.equals("展示数") || caption.equals("曝光量") || caption.equals("曝光数") || caption.equals("最终展现") || caption.equals("有效曝光数")) {
-                                keyFieldFound.add("展现量");
-                                header.put("展现量", ci);
-                            }
-                            if (caption.equals("点击量") || caption.equals("点击") || caption.equals("点击数") || caption.equals("有效点击数")) {
-                                keyFieldFound.add("点击量");
-                                header.put("点击量", ci);
-                            }
-                            if (caption.equals("请求量") || caption.equals("广告请求量") || caption.equals("请求") || caption.equals("请求数") || caption.equals("有效请求数") || caption.equals("媒体请求")) {
-                                header.put("请求量", ci);
-                            }
-                            if (caption.equals("响应量") || caption.equals("广告返回量") || caption.equals("填充数") || caption.equals("返回量") || caption.equals("媒体填充")) {
-                                header.put("响应量", ci);
-                            }
-                        }
-
-                        if (keyFieldFound.containsAll(keyFields)) {
-                            headerRowFound = true;
-                        }
-                        if (keyFieldFound.containsAll(keyFieldsCandidate) && !keyFieldFound.contains("代码位")) {
-                            header.put("代码位", header.get("代码位候选"));
-                            headerRowFound = true;
-                        }
-                    } else {
-                        Calendar calendar = null;
-                        Cell cellDate = row.getCell(header.get("时间"));
-                        if (cellDate != null) {
-                            SimpleDateFormat df0 = new SimpleDateFormat("yyyy-MM-dd");
-                            SimpleDateFormat df1 = new SimpleDateFormat("yyyy/M/d");
-                            SimpleDateFormat df2 = new SimpleDateFormat("yyyy-MM-dd");
-                            SimpleDateFormat df3 = new SimpleDateFormat("yyyyMMdd");
-                            TimeZone tz = TimeZone.getTimeZone(timezone);
-                            df1.setTimeZone(tz);
-                            df2.setTimeZone(tz);
-                            df3.setTimeZone(tz);
-
-                            if (cellDate.getCellType() == CellType.STRING) {
-                                try {
-                                    long time = df1.parse(cellService.getStringValue(cellDate)).getTime();
-                                    calendar = Calendar.getInstance(tz);
-                                    calendar.setTimeInMillis(time);
-                                } catch (Exception e1) {
-                                    try {
-                                        long time = df2.parse(cellService.getStringValue(cellDate)).getTime();
-                                        calendar = Calendar.getInstance(tz);
-                                        calendar.setTimeInMillis(time);
-                                    } catch (Exception e2) {
-                                        try {
-                                            long time = df3.parse(cellService.getStringValue(cellDate)).getTime();
-                                            calendar = Calendar.getInstance(tz);
-                                            calendar.setTimeInMillis(time);
-                                        } finally {
-                                        }
-                                    }
-                                }
-                            } else if (cellDate.getCellType() == CellType.NUMERIC) {
-                                if (DateUtil.isCellDateFormatted(cellDate)) {
-                                    String date = df0.format(cellDate.getDateCellValue());
-                                    long time = df2.parse(date).getTime();
-                                    calendar = Calendar.getInstance(tz);
-                                    calendar.setTimeInMillis(time);
-                                } else {
-                                    long n = Math.round(cellDate.getNumericCellValue());
-                                    String date = n / 10000 + "-" + n % 10000 / 100 + "-" + n % 100;
-                                    long time = df2.parse(date).getTime();
-                                    calendar = Calendar.getInstance(tz);
-                                    calendar.setTimeInMillis(time);
-                                }
-                            }
-                        }
-                        if (calendar == null) {
-                            continue;
-                        }
-
-                        String tagId = null;
-                        Cell cellTagId = row.getCell(header.get("代码位"));
-                        if (cellTagId != null) {
-                            tagId = cellService.getStringValue(cellTagId);
-                            if (tagId.split("\\(").length > 1) {
-                                tagId = tagId.split("\\(")[1];
-                                tagId = tagId.split("\\)")[0];
-                            }
-                        }
-                        if (tagId == null || tagId.isBlank()) {
-                            continue;
-                        }
-
-                        Long impression = null;
-                        Cell cellImpression = row.getCell(header.get("展现量"));
-                        if (cellImpression != null) {
-                            try {
-                                impression = Math.round(Double.parseDouble(cellService.getStringValue(cellImpression).replace(",", "")));
-                            } catch (Exception e) {
-                            }
-                        }
-                        if (impression == null) {
-                            continue;
-                        }
-
-                        Long click = null;
-                        Cell cellClick = row.getCell(header.get("点击量"));
-                        if (cellClick != null) {
-                            try {
-                                click = Math.round(Double.parseDouble(cellService.getStringValue(cellClick).replace(",", "")));
-                            } catch (Exception e) {
-                            }
-                        }
-                        if (click == null) {
-                            continue;
-                        }
-
-                        Long cost = null;
-                        Cell cellCost = row.getCell(header.get("收益"));
-                        if (cellCost != null) {
-                            try {
-                                cost = Math.round(Double.parseDouble(cellService.getStringValue(cellCost).replace(",", "")) * 100000);
-                            } catch (Exception e) {
-                            }
-                        }
-                        if (cost == null) {
-                            continue;
-                        }
-
-                        Long request = null;
-                        if (header.containsKey("请求量")) {
-                            Cell cellRequest = row.getCell(header.get("请求量"));
-                            if (cellRequest != null) {
-                                try {
-                                    request = Math.round(Double.parseDouble(cellService.getStringValue(cellRequest).replace(",", "")));
-                                } catch (Exception e) {
-                                }
-                            }
-                        }
-
-                        Long response = null;
-                        if (header.containsKey("响应量")) {
-                            Cell cellResponse = row.getCell(header.get("响应量"));
-                            if (cellResponse != null) {
-                                try {
-                                    response = Math.round(Double.parseDouble(cellService.getStringValue(cellResponse).replace(",", "")));
-                                } catch (Exception e) {
-                                }
-                            }
-                        }
-
-                        Bill bill = new Bill();
-                        bill.setDate(new Timestamp(calendar.getTime().getTime()));
-                        bill.setTagId(tagId);
-                        bill.setRequest(request);
-                        bill.setResponse(response);
-                        bill.setImpression(impression);
-                        bill.setClick(click);
-                        bill.setCost(cost);
-                        bill.setStatus(Bill.BILL_STATUS_UPLOADED);
-
-                        billList.add(bill);
-                    }
+                if (workbook != null) {
+                    billList.addAll(parseBill(workbook, timezone));
+                    workbook.close();
                 }
             }
 
-            workbook.close();
-
-            if (addBillList(authentication, billList, timezone).size() != 0) {
+            if (billList.size() > 0 && addBillList(authentication, billList, timezone).size() != 0) {
                 node.put("uploaded", billList.size());
             } else {
                 node.put("uploaded", -1);
@@ -364,6 +170,226 @@ public class BillService {
         }
 
         return node;
+    }
+
+    private boolean isHtmlBillFile(byte[] bytes) {
+        String prefix = new String(bytes, 0, Math.min(bytes.length, 4096)).toLowerCase();
+        return prefix.contains("<html") || prefix.contains("<table") || prefix.contains("excel.sheet");
+    }
+
+    private List<Bill> parseBill(Workbook workbook, String timezone) {
+        List<Bill> billList = new ArrayList<Bill>();
+
+        for (int si = 0; si < workbook.getNumberOfSheets(); si++) {
+            Sheet sheet = workbook.getSheetAt(si);
+            Map<String, Integer> header = new HashMap<String, Integer>();
+            boolean headerRowFound = false;
+
+            for (int ri = sheet.getFirstRowNum(); ri <= sheet.getLastRowNum(); ri++) {
+                Row row = sheet.getRow(ri);
+                if (row == null) {
+                    continue;
+                }
+
+                if (!headerRowFound) {
+                    headerRowFound = fillHeader(row, header);
+                } else {
+                    Bill bill = parseRow(row, header, timezone);
+                    if (bill != null) {
+                        billList.add(bill);
+                    }
+                }
+            }
+        }
+
+        return billList;
+    }
+
+    private List<Bill> parseBill(byte[] bytes, String timezone) throws IOException {
+        List<Bill> billList = new ArrayList<Bill>();
+        Document document = Jsoup.parse(new ByteArrayInputStream(bytes), "UTF-8", "");
+        Elements tables = document.select("table");
+
+        if (tables.isEmpty()) {
+            return billList;
+        }
+
+        for (Element table : tables) {
+            Map<String, Integer> header = new HashMap<String, Integer>();
+            boolean headerRowFound = false;
+
+            for (Element row : table.select("tr")) {
+                Elements cells = row.select("th, td");
+                if (cells.isEmpty()) {
+                    continue;
+                }
+
+                if (!headerRowFound) {
+                    headerRowFound = fillHeader(cells, header);
+                } else {
+                    Bill bill = parseRow(cells, header, timezone);
+                    if (bill != null) {
+                        billList.add(bill);
+                    }
+                }
+            }
+        }
+
+        return billList;
+    }
+
+    private boolean fillHeader(Row row, Map<String, Integer> header) {
+        header.clear();
+        Set<String> keyFieldFound = new HashSet<String>();
+        Map<Integer, String> captions = new HashMap<Integer, String>();
+
+        for (int ci = row.getFirstCellNum(); ci < row.getLastCellNum(); ci++) {
+            if (row.getCell(ci) == null) {
+                continue;
+            }
+
+            captions.put(ci, cellService.getStringValue(row.getCell(ci)));
+        }
+
+        fillHeaderField(captions, header, keyFieldFound);
+
+        return checkHeaderCompleted(header, keyFieldFound);
+    }
+
+    private boolean fillHeader(Elements cells, Map<String, Integer> header) {
+        header.clear();
+        Set<String> keyFieldFound = new HashSet<String>();
+        Map<Integer, String> captions = new HashMap<Integer, String>();
+
+        for (int ci = 0; ci < cells.size(); ci++) {
+            captions.put(ci, cells.get(ci).text());
+        }
+
+        fillHeaderField(captions, header, keyFieldFound);
+
+        return checkHeaderCompleted(header, keyFieldFound);
+    }
+
+    private Bill parseRow(Row row, Map<String, Integer> header, String timezone) {
+        Calendar calendar = cellService.getDateValue(row.getCell(header.get("时间")), timezone);
+        if (calendar == null) {
+            return null;
+        }
+
+        String tagId = normalizeTagId(cellService.getStringValue(row.getCell(header.get("代码位"))));
+        Long impression = cellService.getLongValue(row.getCell(header.get("展现量")));
+        Long click = cellService.getLongValue(row.getCell(header.get("点击量")));
+        Double value = cellService.getDoubleValue(row.getCell(header.get("收益")));
+        Long cost = value != null ? Math.round(value * 100000) : null;
+
+        if (tagId == null || tagId.isBlank() || impression == null || click == null || cost == null) {
+            return null;
+        }
+
+        Long request = header.containsKey("请求量") ? cellService.getLongValue(row.getCell(header.get("请求量"))) : null;
+        Long response = header.containsKey("响应量") ? cellService.getLongValue(row.getCell(header.get("响应量"))) : null;
+
+        return buildBill(calendar, tagId, request, response, impression, click, cost);
+    }
+
+    private Bill parseRow(Elements cells, Map<String, Integer> header, String timezone) {
+        Calendar calendar = cellService.getDateValue(cellService.getHtmlCell(cells, header.get("时间")), timezone);
+        if (calendar == null) {
+            return null;
+        }
+
+        String tagId = normalizeTagId(cellService.getStringValue(cellService.getHtmlCell(cells, header.get("代码位"))));
+        Long impression = cellService.getLongValue(cellService.getHtmlCell(cells, header.get("展现量")));
+        Long click = cellService.getLongValue(cellService.getHtmlCell(cells, header.get("点击量")));
+        Double value = cellService.getDoubleValue(cellService.getHtmlCell(cells, header.get("收益")));
+        Long cost = value != null ? Math.round(value * 100000) : null;
+
+        if (tagId == null || tagId.isBlank() || impression == null || click == null || cost == null) {
+            return null;
+        }
+
+        Long request = header.containsKey("请求量") ? cellService.getLongValue(cellService.getHtmlCell(cells, header.get("请求量"))) : null;
+        Long response = header.containsKey("响应量") ? cellService.getLongValue(cellService.getHtmlCell(cells, header.get("响应量"))) : null;
+
+        return buildBill(calendar, tagId, request, response, impression, click, cost);
+    }
+
+    private void fillHeaderField(Map<Integer, String> captions, Map<String, Integer> header, Set<String> keyFieldFound) {
+        for (Integer index : captions.keySet()) {
+            String caption = captions.get(index);
+
+            if (caption.equals("时间") || caption.equals("日期") || caption.equals("日期时间") || caption.equals("收益日期")) {
+                keyFieldFound.add("时间");
+                header.put("时间", index);
+            }
+            if (caption.equals("代码位") || caption.equals("广告位ID") || caption.equals("广告位id") || caption.equals("广告位 Token") || caption.equals("广告位编号") || caption.equals("媒体广告位ID")) {
+                keyFieldFound.add("代码位");
+                header.put("代码位", index);
+            }
+            if (caption.equals("广告位名称")) {
+                keyFieldFound.add("代码位候选");
+                header.put("代码位候选", index);
+            }
+            if (caption.equals("收益") || caption.equals("预估收益") || caption.equals("预估收入") || caption.equals("收入") || caption.equals("预估收入(¥)") || caption.equals("收入(元)") || caption.equals("预估支出")) {
+                keyFieldFound.add("收益");
+                header.put("收益", index);
+            }
+            if (caption.equals("展现量") || caption.equals("曝光") || caption.equals("展示") || caption.equals("展示数") || caption.equals("曝光量") || caption.equals("曝光数") || caption.equals("最终展现") || caption.equals("有效曝光数")) {
+                keyFieldFound.add("展现量");
+                header.put("展现量", index);
+            }
+            if (caption.equals("点击量") || caption.equals("点击") || caption.equals("点击数") || caption.equals("有效点击数")) {
+                keyFieldFound.add("点击量");
+                header.put("点击量", index);
+            }
+            if (caption.equals("请求量") || caption.equals("广告请求量") || caption.equals("请求") || caption.equals("请求数") || caption.equals("有效请求数") || caption.equals("媒体请求")) {
+                header.put("请求量", index);
+            }
+            if (caption.equals("响应量") || caption.equals("广告返回量") || caption.equals("填充数") || caption.equals("返回量") || caption.equals("媒体填充")) {
+                header.put("响应量", index);
+            }
+        }
+    }
+
+    private boolean checkHeaderCompleted(Map<String, Integer> header, Set<String> keyFieldFound) {
+        List<String> keyFields = Arrays.asList("时间", "代码位", "收益", "展现量", "点击量");
+        List<String> keyFieldsCandidate = Arrays.asList("时间", "代码位候选", "收益", "展现量", "点击量");
+
+        if (keyFieldFound.containsAll(keyFields)) {
+            return true;
+        }
+        if (keyFieldFound.containsAll(keyFieldsCandidate) && !keyFieldFound.contains("代码位")) {
+            header.put("代码位", header.get("代码位候选"));
+            return true;
+        }
+
+        return false;
+    }
+
+    private String normalizeTagId(String tagId) {
+        if (tagId == null) {
+            return null;
+        }
+
+        if (tagId.split("\\(").length > 1) {
+            tagId = tagId.split("\\(")[1];
+            tagId = tagId.split("\\)")[0];
+        }
+
+        return tagId;
+    }
+
+    private Bill buildBill(Calendar calendar, String tagId, Long request, Long response, Long impression, Long click, Long cost) {
+        Bill bill = new Bill();
+        bill.setDate(new Timestamp(calendar.getTime().getTime()));
+        bill.setTagId(tagId);
+        bill.setRequest(request);
+        bill.setResponse(response);
+        bill.setImpression(impression);
+        bill.setClick(click);
+        bill.setCost(cost);
+        bill.setStatus(Bill.BILL_STATUS_UPLOADED);
+        return bill;
     }
 
     public byte[] downloadBill(
@@ -822,34 +848,7 @@ public class BillService {
                         Calendar calendar = null;
                         Cell cellDate = row.getCell(header.get("时间"));
                         if (cellDate != null) {
-                            SimpleDateFormat df0 = new SimpleDateFormat("yyyy-MM-dd");
-                            SimpleDateFormat df1 = new SimpleDateFormat("yyyy/M/d");
-                            SimpleDateFormat df2 = new SimpleDateFormat("yyyy-MM-dd");
-                            TimeZone tz = TimeZone.getTimeZone(timezone);
-                            df1.setTimeZone(tz);
-                            df2.setTimeZone(tz);
-
-                            if (cellDate.getCellType() == CellType.STRING) {
-                                try {
-                                    long time = df1.parse(cellService.getStringValue(cellDate)).getTime();
-                                    calendar = Calendar.getInstance(tz);
-                                    calendar.setTimeInMillis(time);
-                                } catch (Exception e) {
-                                    try {
-                                        long time = df2.parse(cellService.getStringValue(cellDate)).getTime();
-                                        calendar = Calendar.getInstance(tz);
-                                        calendar.setTimeInMillis(time);
-                                    } finally {
-                                    }
-                                }
-                            } else if (cellDate.getCellType() == CellType.NUMERIC) {
-                                if (DateUtil.isCellDateFormatted(cellDate)) {
-                                    String date = df0.format(cellDate.getDateCellValue());
-                                    long time = df2.parse(date).getTime();
-                                    calendar = Calendar.getInstance(tz);
-                                    calendar.setTimeInMillis(time);
-                                }
-                            }
+                            calendar = cellService.getDateValue(cellDate, timezone);
                         }
                         if (calendar == null) {
                             continue;
