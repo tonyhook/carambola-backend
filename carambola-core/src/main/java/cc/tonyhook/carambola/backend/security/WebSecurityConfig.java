@@ -15,6 +15,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.UserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.rememberme.RememberMeAuthenticationFilter;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfToken;
@@ -34,19 +35,22 @@ public class WebSecurityConfig {
     private final CarambolaAuthenticationFailureHandler authenticationFailureHandler;
     private final CarambolaAccessDeniedHandler accessDeniedHandler;
     private final CarambolaAuthenticationEntryPoint authenticationEntryPoint;
+    private final CarambolaAuthenticatedSessionFilter authenticatedSessionFilter;
 
     public WebSecurityConfig(
             DataSource securityDataSource,
             CarambolaAuthenticationSuccessHandler authenticationSuccessHandler,
             CarambolaAuthenticationFailureHandler authenticationFailureHandler,
             CarambolaAccessDeniedHandler accessDeniedHandler,
-            CarambolaAuthenticationEntryPoint authenticationEntryPoint
+            CarambolaAuthenticationEntryPoint authenticationEntryPoint,
+            CarambolaAuthenticatedSessionFilter authenticatedSessionFilter
     ) {
         this.securityDataSource = securityDataSource;
         this.authenticationSuccessHandler = authenticationSuccessHandler;
         this.authenticationFailureHandler = authenticationFailureHandler;
         this.accessDeniedHandler = accessDeniedHandler;
         this.authenticationEntryPoint = authenticationEntryPoint;
+        this.authenticatedSessionFilter = authenticatedSessionFilter;
     }
 
     @Bean
@@ -86,7 +90,10 @@ public class WebSecurityConfig {
                 .failureHandler(authenticationFailureHandler))
             .logout(logout -> logout
                 .logoutSuccessHandler(authenticationSuccessHandler))
-            .rememberMe(withDefaults())
+            .rememberMe(rememberMe -> rememberMe
+                .key("carambola-remember-me")
+                .rememberMeParameter("remember-me")
+                .tokenValiditySeconds(60 * 60 * 24 * 30))
             .cors(withDefaults())
             .csrf(csrf -> csrf
                 .ignoringRequestMatchers("/api/open/**")
@@ -95,6 +102,7 @@ public class WebSecurityConfig {
             .exceptionHandling(exceptionHandling -> exceptionHandling
                 .accessDeniedHandler(accessDeniedHandler)
                 .authenticationEntryPoint(authenticationEntryPoint))
+            .addFilterAfter(authenticatedSessionFilter, RememberMeAuthenticationFilter.class)
             .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class);
 
         return http.build();
