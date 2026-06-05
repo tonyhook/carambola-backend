@@ -1,0 +1,13 @@
+package cc.tonyhook.carambola.backend;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+class CarambolaApplicationTests {
+
+	@Test
+	void contextLoads() {
+	}
+
+}

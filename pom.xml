@@ -17,7 +17,9 @@
 
 	<modules>
 		<module>carambola-core</module>
+		<module>carambola-perf</module>
 		<module>carambola-ad</module>
+		<module>carambola-app-perf</module>
 		<module>carambola-app-ad</module>
 	</modules>
 
@@ -30,6 +32,11 @@
 			<dependency>
 				<groupId>cc.tonyhook.carambola</groupId>
 				<artifactId>carambola-core</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>cc.tonyhook.carambola</groupId>
+				<artifactId>carambola-perf</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>
