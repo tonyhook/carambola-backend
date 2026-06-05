@@ -2,13 +2,12 @@ package cc.tonyhook.carambola.backend.web;
 
 import java.sql.Timestamp;
 
-import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.util.ContentCachingResponseWrapper;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 import cc.tonyhook.carambola.backend.dao.audit.LogRepository;
 import cc.tonyhook.carambola.backend.entity.audit.Log;
@@ -26,7 +25,7 @@ public class CarambolaLoggerInterceptor implements HandlerInterceptor {
 
     @Override
     public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler,
-            @Nullable ModelAndView modelAndView) throws Exception {
+            ModelAndView modelAndView) throws Exception {
         if (request.getMethod().equals("GET")) {
             // for list/get
             return;
