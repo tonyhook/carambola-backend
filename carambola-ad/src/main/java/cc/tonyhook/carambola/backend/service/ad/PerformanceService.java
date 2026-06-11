@@ -31,7 +31,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
-import org.springframework.data.redis.connection.RedisStringCommands.SetOption;
+import org.springframework.data.redis.connection.SetCondition;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettucePoolingClientConfiguration;
 import org.springframework.data.redis.core.Cursor;
@@ -283,8 +283,8 @@ public class PerformanceService {
                 connection.stringCommands().set(
                     k.getBytes(StandardCharsets.UTF_8),
                     v.getBytes(StandardCharsets.UTF_8),
-                    Expiration.from(4, TimeUnit.HOURS),
-                    SetOption.UPSERT
+                    SetCondition.upsert(),
+                    Expiration.from(4, TimeUnit.HOURS)
                 );
             });
             return null;
