@@ -20,7 +20,7 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
-    @PreAuthorize("hasAuthority('SECURITY_MANAGEMENT') || hasAuthority('AD_MANAGEMENT') || hasAuthority('AD_OPERATION')")
+    @PreAuthorize("hasAuthority('SECURITY_MANAGEMENT') || hasAuthority('AD_MANAGEMENT') || hasAuthority('AD_OPERATION') || hasAuthority('PERF_MANAGEMENT') || hasAuthority('PERF_OPERATION') || hasAuthority('PERF_CLIENT')")
     public List<User> queryUserList(Query query) {
         List<User> userList = userRepository.findAll();
 
@@ -46,7 +46,7 @@ public class UserService {
         return userList;
     }
 
-    @PreAuthorize("hasAuthority('SECURITY_MANAGEMENT') || hasAuthority('AD_MANAGEMENT') || hasAuthority('AD_OPERATION')")
+    @PreAuthorize("hasAuthority('SECURITY_MANAGEMENT') || hasAuthority('AD_MANAGEMENT') || hasAuthority('AD_OPERATION') || hasAuthority('PERF_MANAGEMENT') || hasAuthority('PERF_OPERATION') || hasAuthority('PERF_CLIENT')")
     public List<User> getUserList() {
         List<User> userList = userRepository.findAll();
 
@@ -67,7 +67,7 @@ public class UserService {
         return updatedUser;
     }
 
-    @PreAuthorize("hasAuthority('SECURITY_MANAGEMENT') || hasAuthority('AD_MANAGEMENT') || hasAuthority('AD_OPERATION')")
+    @PreAuthorize("hasAuthority('SECURITY_MANAGEMENT') || hasAuthority('AD_MANAGEMENT') || hasAuthority('AD_OPERATION') || hasAuthority('PERF_MANAGEMENT') || hasAuthority('PERF_OPERATION') || hasAuthority('PERF_CLIENT')")
     public void updateUser(Integer id, User newUser) {
         userRepository.save(newUser);
     }
