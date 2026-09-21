@@ -63,6 +63,38 @@ class MediaProcessorTest {
     }
 
     @Test
+    void zhangyueSplitsCaidListNewestFirst() {
+        MediaProcessorZhangyue zhangyue = new MediaProcessorZhangyue(debug, SERVER);
+
+        // 掌阅的 _CAID_ 与 _CAIDV_ 可能一起来
+        Event event = zhangyue.event(queries("davidia_id", "MC1", "davidia_event", EventCodes.CLICK,
+            "caid", "raw",
+            "caid_list", "[{\"caid\":\"old\",\"version\":\"20230330\"},{\"caid\":\"new\",\"version\":\"20250325\"}]"));
+
+        assertThat(event.getQueries()).containsEntry("caid1", "new")
+            .containsEntry("caid1_v", "20250325")
+            .containsEntry("caid2", "old")
+            // 拆出来了就不留那个没版本号的整串,上游拿到的是带版本号的
+            .doesNotContainKey("caid");
+        assertThat(PerfQueries.caidVersioned(event.getQueries())).isEqualTo("20250325_new,20230330_old");
+    }
+
+    // 掌阅曾把缺 caid 的条目写成空串,PerfQueries.Caid 统一挡掉空值
+    @Test
+    void blankCaidIsNotWritten() {
+        MediaProcessorZhangyue zhangyue = new MediaProcessorZhangyue(debug, SERVER);
+
+        Event event = zhangyue.event(queries("davidia_id", "MC1", "davidia_event", EventCodes.CLICK,
+            "caid_list", "[{\"version\":\"20250325\"},{\"caid\":\"c\"},{\"caid\":\"d\",\"version\":\"20230330\"}]"));
+
+        // 缺 caid 的与缺版本号的都整条丢掉,唯一完整的那条落到 caid1,不留空串
+        assertThat(event.getQueries()).containsEntry("caid1", "d")
+            .containsEntry("caid1_v", "20230330")
+            .doesNotContainKey("caid2")
+            .doesNotContainKey("caid2_v");
+    }
+
+    @Test
     void neteaseMergesCaidByVersionAndBuildsCallbackFromConversionKey() {
         MediaProcessorNetease netease = new MediaProcessorNetease(debug, SERVER);
 
@@ -171,6 +203,42 @@ class MediaProcessorTest {
             .doesNotContainKey("value");
     }
 
+    // 2007 是电商漏斗末端的付费:每家都要和自己的 APP_PAY 回传成同一个转化类型,
+    // 且把金额带上——各家的金额条件都只认付费类型,类型指错金额就跟着丢
+    @Test
+    void checkOutIsDeliveredAsPaymentByEveryMedia() {
+        // 有道:端前缀 + purchase,order_amount 单位为分
+        assertThat(sent(new MediaProcessorNetease(debug, SERVER), EventCodes.APP_CHECK_OUT, DEAD_CALLBACK))
+            .contains("conv_action=android_purchase")
+            .contains("order_amount=1234");
+        // 掌阅:pay,pay_amount 单位为元
+        assertThat(sent(new MediaProcessorZhangyue(debug, SERVER), EventCodes.APP_CHECK_OUT, DEAD_CALLBACK))
+            .contains("type=pay")
+            .contains("pay_amount=12.34");
+        // 360:PAY,value 单位为分
+        assertThat(sent(new MediaProcessor360(debug, SERVER), EventCodes.APP_CHECK_OUT, DEAD_CALLBACK))
+            .contains("event=PAY")
+            .contains("value=1234");
+        // 陌陌 POST 到自己的转化接口,不能在测试里真发。回调地址不带 encrypt,
+        // 它在发请求前就返回 FAILED——只要不是 UNSUPPORTED,就说明 2007 已经映射上了
+        Event noEncrypt = entry(Map.of("davidia_callback", DEAD_CALLBACK, "trace_id", "T1"));
+        assertThat(new MediaProcessorMomo(debug, SERVER, "k").callback(payConversion(EventCodes.APP_CHECK_OUT), noEncrypt))
+            .isEqualTo(DeliveryResult.FAILED);
+        assertThat(new MediaProcessorMomo(debug, SERVER, "k").callback(payConversion(EventCodes.APP_PAY), noEncrypt))
+            .isEqualTo(DeliveryResult.FAILED);
+
+        // 与各自的 APP_PAY 走的是同一个类型
+        assertThat(sent(new MediaProcessorNetease(debug, SERVER), EventCodes.APP_PAY, DEAD_CALLBACK))
+            .contains("conv_action=android_purchase");
+        assertThat(sent(new MediaProcessorZhangyue(debug, SERVER), EventCodes.APP_PAY, DEAD_CALLBACK))
+            .contains("type=pay");
+
+        // 下单是上一步,不能混成付费,也不带金额
+        assertThat(sent(new MediaProcessor360(debug, SERVER), EventCodes.APP_PLACE_ORDER, DEAD_CALLBACK))
+            .contains("event=PLACE_ORDER")
+            .doesNotContain("value=");
+    }
+
     // 有道的多笔购买靠 order_id 区分,不给它只收第一笔;conv_time 不给则按收到时刻记
     @Test
     void neteaseSendsOrderIdAndConversionTimeForPurchases() {
@@ -211,6 +279,27 @@ class MediaProcessorTest {
             .isEqualTo(DeliveryResult.UNSUPPORTED);
     }
 
+    // 2016 下单此前对有道与掌阅都是 UNSUPPORTED,两家现成的转化类型一直空着
+    @Test
+    void placeOrderIsDeliveredAsOrderConversion() {
+        assertThat(sent(new MediaProcessorZhangyue(debug, SERVER), EventCodes.APP_PLACE_ORDER, DEAD_CALLBACK))
+            .contains("type=submitorder")
+            // 掌阅只有 pay 收金额
+            .doesNotContain("pay_amount");
+
+        // 有道的下单与购买同属订单类,都要带 order_id,否则重复下单只收第一笔
+        assertThat(sent(new MediaProcessorNetease(debug, SERVER), EventCodes.APP_PLACE_ORDER, DEAD_CALLBACK))
+            .contains("conv_action=android_in_app_order")
+            .contains("order_id=1")
+            .contains("order_amount=1234");
+
+        // 下单仍然不能和付费混成一个类型
+        assertThat(sent(new MediaProcessorNetease(debug, SERVER), EventCodes.APP_PAY, DEAD_CALLBACK))
+            .contains("conv_action=android_purchase");
+        assertThat(sent(new MediaProcessorZhangyue(debug, SERVER), EventCodes.APP_PAY, DEAD_CALLBACK))
+            .contains("type=pay");
+    }
+
     // 有道的留存靠 retention_days 区分,文档取值范围 [2,30],所以十四日留存复用 retention
     @Test
     void neteaseSendsFourteenDayRetentionAsRetentionDays() {
@@ -223,6 +312,39 @@ class MediaProcessorTest {
         assertThat(sent(netease, EventCodes.APP_RETENTION_1, DEAD_CALLBACK))
             .contains("conv_action=android_day1retention")
             .doesNotContain("retention_days");
+    }
+
+    // 分窗口付费各家都没有对应类型,不回传好过错报成普通付费
+    @Test
+    void windowedPaymentIsNotDeliveredWhereTheMediaHasNoSuchType() {
+        Event entry = entry(Map.of("davidia_callback", DEAD_CALLBACK, "oaid", "O1"));
+
+        for (String event : List.of(EventCodes.APP_PAY_1, EventCodes.APP_PAY_3,
+                EventCodes.APP_PAY_7, EventCodes.APP_PAY_14)) {
+            assertThat(new MediaProcessorNetease(debug, SERVER).callback(conversion(event), entry))
+                .isEqualTo(DeliveryResult.UNSUPPORTED);
+            assertThat(new MediaProcessorMomo(debug, SERVER, "").callback(conversion(event), entry))
+                .isEqualTo(DeliveryResult.UNSUPPORTED);
+            assertThat(new MediaProcessor360(debug, SERVER).callback(conversion(event), entry))
+                .isEqualTo(DeliveryResult.UNSUPPORTED);
+            assertThat(new MediaProcessorYy(debug, SERVER, mock(EventHistoryService.class))
+                .callback(conversion(event), entry)).isEqualTo(DeliveryResult.UNSUPPORTED);
+            assertThat(new MediaProcessorZhangyue(debug, SERVER).callback(conversion(event), entry))
+                .isEqualTo(DeliveryResult.UNSUPPORTED);
+        }
+        // 掌阅的留存只有次留一档
+        assertThat(new MediaProcessorZhangyue(debug, SERVER).callback(conversion(EventCodes.APP_RETENTION_14), entry))
+            .isEqualTo(DeliveryResult.UNSUPPORTED);
+        // 陌陌连留存都没有
+        assertThat(new MediaProcessorMomo(debug, SERVER, "").callback(conversion(EventCodes.APP_RETENTION_14), entry))
+            .isEqualTo(DeliveryResult.UNSUPPORTED);
+        assertThat(new MediaProcessor360(debug, SERVER).callback(conversion(EventCodes.APP_RETENTION_14), entry))
+            .isEqualTo(DeliveryResult.UNSUPPORTED);
+        // YY 的留存只到七日
+        assertThat(new MediaProcessorYy(debug, SERVER, mock(EventHistoryService.class))
+            .callback(conversion(EventCodes.APP_RETENTION_14), entry)).isEqualTo(DeliveryResult.UNSUPPORTED);
+        assertThat(new MediaProcessorYy(debug, SERVER, mock(EventHistoryService.class))
+            .callback(conversion(EventCodes.APP_RETENTION_7), entry)).isNotEqualTo(DeliveryResult.UNSUPPORTED);
     }
 
     @Test
@@ -257,6 +379,37 @@ class MediaProcessorTest {
             .containsEntry("idfa", "I1");
         // 360 不下发 os,端由设备标识推断
         assertThat(PerfQueries.inferOs(event.getQueries())).isEqualTo(PerfQueries.Os.IOS);
+    }
+
+    @Test
+    void cleanQueriesExcludePlatformParamsAndMacros() {
+        MediaProcessorZhangyue zhangyue = new MediaProcessorZhangyue(debug, SERVER);
+
+        assertThat(zhangyue.cleanQueries(queries("davidia_callback", "x", "davidia_amount", "1", "oaid", "O1", "ua", "_UA_", "ip", " ")))
+            .containsOnlyKeys("oaid");
+    }
+
+    @Test
+    void conversionWithoutCallbackAddressFails() {
+        Event entry = entry(Map.of("oaid", "O1"));
+
+        assertThat(new MediaProcessorZhangyue(debug, SERVER).callback(conversion(EventCodes.APP_ACTIVATE), entry))
+            .isEqualTo(DeliveryResult.FAILED);
+    }
+
+    @Test
+    void unmappedConversionIsNotSent() {
+        Event entry = entry(Map.of("davidia_callback", "http://127.0.0.1:9/cb", "os", "iOS", "trace_id", "T"));
+
+        assertThat(new MediaProcessorZhangyue(debug, SERVER).callback(conversion(EventCodes.APP_RETENTION_7), entry))
+            .isEqualTo(DeliveryResult.UNSUPPORTED);
+        assertThat(new MediaProcessorMomo(debug, SERVER, "").callback(conversion(EventCodes.APP_RETENTION_1), entry))
+            .isEqualTo(DeliveryResult.UNSUPPORTED);
+        assertThat(new MediaProcessorYy(debug, SERVER, mock(EventHistoryService.class)).callback(conversion(EventCodes.APP_RECALL), entry))
+            .isEqualTo(DeliveryResult.UNSUPPORTED);
+        // 有道只有 android_download
+        assertThat(new MediaProcessorNetease(debug, SERVER).callback(conversion(EventCodes.APP_DOWNLOAD_COMPLETED), entry))
+            .isEqualTo(DeliveryResult.UNSUPPORTED);
     }
 
     private static Event entry(Map<String, String> queries) {
