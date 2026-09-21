@@ -31,6 +31,31 @@ class MediaProcessorTest {
     private final PerfDebugPrintService debug = mock(PerfDebugPrintService.class);
 
     @Test
+    void envelopeIsRequired() {
+        MediaProcessorIfeng ifeng = new MediaProcessorIfeng(debug, SERVER);
+
+        assertThat(ifeng.event(queries("davidia_event", EventCodes.CLICK))).isNull();
+        assertThat(ifeng.event(queries("davidia_id", "MC1"))).isNull();
+
+        Event event = ifeng.event(queries("davidia_id", "MC1", "davidia_event", EventCodes.CLICK));
+        assertThat(event.getMedia()).isEqualTo("ifeng");
+        assertThat(event.getMediaCode()).isEqualTo("MC1");
+        assertThat(event.getEvent()).isEqualTo(EventCodes.CLICK);
+    }
+
+    @Test
+    void unreplacedMediaMacrosAreDroppedAndOsNormalized() {
+        MediaProcessorIfeng ifeng = new MediaProcessorIfeng(debug, SERVER);
+
+        Event event = ifeng.event(queries("davidia_id", "MC1", "davidia_event", EventCodes.CLICK,
+            "imei", "MNT_03_IMEI", "oaid", "O1", "os", "1"));
+
+        assertThat(event.getQueries()).doesNotContainKey("imei")
+            .containsEntry("oaid", "O1")
+            .containsEntry("os", "iOS");
+    }
+
+    @Test
     void ownProtocolCarriesAmount() {
         MediaProcessorDavidia davidia = new MediaProcessorDavidia(debug, SERVER);
 
