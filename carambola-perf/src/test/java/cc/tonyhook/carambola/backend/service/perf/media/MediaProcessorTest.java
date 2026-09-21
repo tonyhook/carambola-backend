@@ -18,6 +18,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import cc.tonyhook.carambola.backend.entity.perf.Event;
 import cc.tonyhook.carambola.backend.entity.perf.EventCodes;
 import cc.tonyhook.carambola.backend.service.perf.DeliveryResult;
+import cc.tonyhook.carambola.backend.service.perf.EventHistoryService;
 import cc.tonyhook.carambola.backend.service.perf.PerfDebugPrintService;
 import cc.tonyhook.carambola.backend.service.perf.PerfProcessors;
 import cc.tonyhook.carambola.backend.service.perf.PerfQueries;
@@ -78,6 +79,29 @@ class MediaProcessorTest {
             .doesNotContainKey("conv")
             .containsEntry("req_id", "R1");
         assertThat(netease.getEventUrl("MC1", EventCodes.CLICK)).startsWith("http://perf.example.com/api/open/event?davidia_media=netease&");
+    }
+
+    @Test
+    void yyWrapsCallbackToken() {
+        MediaProcessorYy yy = new MediaProcessorYy(debug, SERVER, mock(EventHistoryService.class));
+
+        Event event = yy.event(queries("davidia_id", "MC1", "davidia_event", EventCodes.CLICK, "callback", "T1"));
+
+        assertThat(event.getQueries()).containsEntry("davidia_callback", "https://adp.yy.com/open/conversion/callback?callback=T1")
+            .doesNotContainKey("callback");
+    }
+
+    // 入口事件不限于点击:展示打进来同样归一、同样能回传
+    @Test
+    void impressionIsAValidEntryEvent() {
+        MediaProcessorYy yy = new MediaProcessorYy(debug, SERVER, mock(EventHistoryService.class));
+
+        Event impression = yy.event(queries("davidia_id", "MC1", "davidia_event", EventCodes.IMPRESSION, "callback", "T1"));
+
+        assertThat(impression.getEvent()).isEqualTo(EventCodes.IMPRESSION);
+        assertThat(impression.getQueries()).containsEntry("davidia_callback", "https://adp.yy.com/open/conversion/callback?callback=T1");
+        // 展示作为入口事件时,回传照样按转化事件映射,认不出才 UNSUPPORTED
+        assertThat(yy.callback(conversion(EventCodes.APP_RECALL), impression)).isEqualTo(DeliveryResult.UNSUPPORTED);
     }
 
     @Test
