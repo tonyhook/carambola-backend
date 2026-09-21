@@ -25,6 +25,20 @@ class TrackProcessorTest {
     private final PerfDebugPrintService debug = mock(PerfDebugPrintService.class);
 
     @Test
+    void ainianFollowsProtocolForOsAndCaid() {
+        Map<String, String> params = entryParams(new TrackProcessorAinian(debug, SERVER), EventCodes.CLICK, "10001", ios());
+
+        assertThat(params).containsEntry("oid", "10001")
+            .containsEntry("rt", "2")
+            .containsEntry("dot", "1")
+            .containsEntry("cid", "")
+            .containsEntry("caid", "[{\"caid\":\"c1\",\"version\":\"20250325\"}]");
+
+        Map<String, String> harmony = entryParams(new TrackProcessorAinian(debug, SERVER), EventCodes.CLICK, "10001", Map.of("os", "HarmonyOS"));
+        assertThat(harmony).containsEntry("dot", "3");
+    }
+
+    @Test
     void davidiaDropsUnresolvedTemplateParamsAndPassesTheRestThrough() {
         Map<String, String> params = entryParams(new TrackProcessorDavidia(debug, SERVER), EventCodes.CLICK,
             "https://t.example.com/c?id=__DAVIDIA_ID__&i=__IDFA__|D9", android());
@@ -52,6 +66,10 @@ class TrackProcessorTest {
 
     private static Map<String, String> android() {
         return Map.of("oaid", "O1", "os", "Android", "ua", "Mozilla/5.0 (Linux)", "ip", "1.2.3.4", "ts", "1726650000000");
+    }
+
+    private static Map<String, String> ios() {
+        return Map.of("idfa", "I1", "os", "iOS", "caid1", "c1", "caid1_v", "20250325", "ipv6", "240e::1");
     }
 
     private static Event event(String eventCode, Map<String, String> queries) {
