@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import cc.tonyhook.carambola.backend.entity.perf.ClientChannelRoute;
 import cc.tonyhook.carambola.backend.entity.perf.Event;
 import cc.tonyhook.carambola.backend.entity.perf.EventCodes;
+import cc.tonyhook.carambola.backend.service.perf.DeliveryResult;
 import cc.tonyhook.carambola.backend.service.perf.PerfDebugPrintService;
 
 class TrackProcessorTest {
@@ -24,6 +25,19 @@ class TrackProcessorTest {
     private static final String CALLBACK = "https://perf.example.com/api/open/callback?davidia_track=%s&davidia_delivery=tok";
 
     private final PerfDebugPrintService debug = mock(PerfDebugPrintService.class);
+
+    @Test
+    void kabossUsesPlatformIdWhenTraceIdMissing() {
+        Map<String, String> params = entryParams(new TrackProcessorKaboss(debug, SERVER), EventCodes.CLICK, "ADM1", ios());
+
+        assertThat(params).containsEntry("bchannel", "ADM1")
+            .containsEntry("behavior", "CLICK")
+            .containsEntry("trace_id", "7")
+            .containsEntry("os", "ios")
+            .containsEntry("caid", "[{\"caid\":\"c1\",\"version\":\"20250325\"}]")
+            .containsEntry("client_ip", "240e::1")
+            .containsEntry("plan_id", "");
+    }
 
     @Test
     void ifengTakesHostFromTrackCode() {
@@ -78,6 +92,14 @@ class TrackProcessorTest {
             .containsEntry("davidia_track", "haoyou")
             .containsEntry("davidia_delivery", "tok")
             .doesNotContainKey("idfa");
+    }
+
+    @Test
+    void unsupportedEventIsNotSent() {
+        Event impression = event(EventCodes.IMPRESSION, android());
+
+        assertThat(new TrackProcessorKaboss(debug, SERVER).event(impression, route("ADM1"), "tok")).isEqualTo(DeliveryResult.UNSUPPORTED);
+        assertThat(new TrackProcessorHaoyou(debug, SERVER).event(impression, route("https://h"), "tok")).isEqualTo(DeliveryResult.UNSUPPORTED);
     }
 
     @Test
