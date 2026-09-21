@@ -40,6 +40,17 @@ class TrackProcessorTest {
     }
 
     @Test
+    void opadlinkPutsKeysInPathAndPresetsActivationCallback() {
+        Map<String, String> params = entryParams(new TrackProcessorOpadlink(debug, SERVER), EventCodes.CLICK, "ak|cid|", android());
+
+        assertThat(params.get("<path>")).isEqualTo("https://opadlink.com/ad/click/ak");
+        assertThat(params).containsEntry("cid", "cid")
+            .containsEntry("op_cc", "")
+            .containsEntry("os", "0")
+            .containsEntry("ad_clickid", CALLBACK.formatted("opadlink") + "&type=active");
+    }
+
+    @Test
     void ifengTakesHostFromTrackCode() {
         TrackProcessorIfeng ifeng = new TrackProcessorIfeng(debug, SERVER);
         Map<String, String> params = entryParams(ifeng, EventCodes.IMPRESSION, "c|g|a|m|ch|https://ifeng.example.com/", ios());
@@ -100,6 +111,25 @@ class TrackProcessorTest {
 
         assertThat(new TrackProcessorKaboss(debug, SERVER).event(impression, route("ADM1"), "tok")).isEqualTo(DeliveryResult.UNSUPPORTED);
         assertThat(new TrackProcessorHaoyou(debug, SERVER).event(impression, route("https://h"), "tok")).isEqualTo(DeliveryResult.UNSUPPORTED);
+    }
+
+    @Test
+    void conversionTypesAreMappedByTableAndUnknownOnesRejected() {
+        TrackProcessorKaboss kaboss = new TrackProcessorKaboss(debug, SERVER);
+        Event pay = kaboss.callback(queries("conv_type", "pay", "conv_amount", "1234"));
+        assertThat(pay.getEvent()).isEqualTo(EventCodes.APP_PAY);
+        assertThat(pay.getAmount()).isEqualByComparingTo(new BigDecimal("1234"));
+        assertThat(kaboss.callback(queries("conv_type", "bogus"))).isNull();
+        assertThat(kaboss.callback(queries())).isNull();
+        assertThat(kaboss.callback(queries("conv_type", "pay", "conv_amount", "abc"))).isNull();
+
+        // 缺省语义:凤凰由协议规定,openinstall 沿用线上约定;取值认不出一律拒收
+        TrackProcessorIfeng ifeng = new TrackProcessorIfeng(debug, SERVER);
+        assertThat(ifeng.callback(queries()).getEvent()).isEqualTo(EventCodes.APP_ACTIVATE);
+        assertThat(ifeng.callback(queries("event_type", "bogus"))).isNull();
+        TrackProcessorOpadlink opadlink = new TrackProcessorOpadlink(debug, SERVER);
+        assertThat(opadlink.callback(queries()).getEvent()).isEqualTo(EventCodes.APP_REGISTER);
+        assertThat(opadlink.callback(queries("type", "bogus"))).isNull();
     }
 
     @Test
