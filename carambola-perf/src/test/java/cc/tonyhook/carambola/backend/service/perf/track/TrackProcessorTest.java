@@ -27,6 +27,22 @@ class TrackProcessorTest {
     private final PerfDebugPrintService debug = mock(PerfDebugPrintService.class);
 
     @Test
+    void qianyiFillsTemplateAndBlanksMissingMacros() {
+        Map<String, String> params = entryParams(new TrackProcessorQianyi(debug, SERVER), EventCodes.CLICK, "FID01", android());
+
+        assertThat(params.get("<path>")).isEqualTo("https://ad.qianyichuanmei.com.cn/cpa/ocpx/click");
+        assertThat(params).containsEntry("fid", "FID01")
+            .containsEntry("rid", "7")
+            .containsEntry("cb", CALLBACK.formatted("qianyi"))
+            .containsEntry("oid", "O1")
+            .containsEntry("ua", "Mozilla/5.0 (Linux)")
+            .containsEntry("ost", "2")
+            // 媒体没给的字段发空串,不发裸宏
+            .containsEntry("idfa", "")
+            .containsEntry("caid", "");
+    }
+
+    @Test
     void kabossUsesPlatformIdWhenTraceIdMissing() {
         Map<String, String> params = entryParams(new TrackProcessorKaboss(debug, SERVER), EventCodes.CLICK, "ADM1", ios());
 
@@ -111,6 +127,14 @@ class TrackProcessorTest {
 
         assertThat(new TrackProcessorKaboss(debug, SERVER).event(impression, route("ADM1"), "tok")).isEqualTo(DeliveryResult.UNSUPPORTED);
         assertThat(new TrackProcessorHaoyou(debug, SERVER).event(impression, route("https://h"), "tok")).isEqualTo(DeliveryResult.UNSUPPORTED);
+    }
+
+    @Test
+    void misconfiguredRouteFailsWithoutSending() {
+        assertThat(new TrackProcessorQianyi(debug, SERVER).event(event(EventCodes.CLICK, android()), route(null), "tok"))
+            .isEqualTo(DeliveryResult.FAILED);
+        assertThat(new TrackProcessorOpadlink(debug, SERVER).event(event(EventCodes.CLICK, android()), route("ak|cid"), "tok"))
+            .isEqualTo(DeliveryResult.FAILED);
     }
 
     @Test
