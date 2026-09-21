@@ -1,6 +1,7 @@
 package cc.tonyhook.carambola.backend.service.perf.track;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
 import java.math.BigDecimal;
@@ -23,6 +24,21 @@ class TrackProcessorTest {
     private static final String CALLBACK = "https://perf.example.com/api/open/callback?davidia_track=%s&davidia_delivery=tok";
 
     private final PerfDebugPrintService debug = mock(PerfDebugPrintService.class);
+
+    @Test
+    void ifengTakesHostFromTrackCode() {
+        TrackProcessorIfeng ifeng = new TrackProcessorIfeng(debug, SERVER);
+        Map<String, String> params = entryParams(ifeng, EventCodes.IMPRESSION, "c|g|a|m|ch|https://ifeng.example.com/", ios());
+
+        assertThat(params.get("<path>")).isEqualTo("https://ifeng.example.com/d/imp");
+        assertThat(params).containsEntry("channel", "ch")
+            .containsEntry("os", "1")
+            .containsEntry("caid", "20250325_c1");
+
+        // 没配域名的旧路由按配置错误处理,不再发往“__BASE_URL__”
+        assertThatThrownBy(() -> ifeng.buildEntryUrl(event(EventCodes.CLICK, android()), route("c|g|a|m|ch"), "tok"))
+            .isInstanceOf(TrackProcessor.MisconfiguredRouteException.class);
+    }
 
     @Test
     void ainianFollowsProtocolForOsAndCaid() {
