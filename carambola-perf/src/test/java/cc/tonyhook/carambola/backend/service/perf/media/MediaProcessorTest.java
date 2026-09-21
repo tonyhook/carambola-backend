@@ -1,7 +1,9 @@
 package cc.tonyhook.carambola.backend.service.perf.media;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -10,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import cc.tonyhook.carambola.backend.entity.perf.Event;
@@ -22,6 +25,9 @@ import cc.tonyhook.carambola.backend.service.perf.PerfQueries;
 class MediaProcessorTest {
 
     private static final String SERVER = "https://perf.example.com/";
+
+    // 本机的 discard 端口:连接立即被拒,回传不会真的发出去
+    private static final String DEAD_CALLBACK = "http://127.0.0.1:9/cb";
 
     // 360 下发的回调地址:自己的字段已填好,转化相关的还是宏
     private static final String CALLBACK_360 = "https://convert.dop.360.cn/ms/third?qhclickid=abcde"
@@ -53,6 +59,25 @@ class MediaProcessorTest {
         assertThat(event.getQueries()).doesNotContainKey("imei")
             .containsEntry("oaid", "O1")
             .containsEntry("os", "iOS");
+    }
+
+    @Test
+    void neteaseMergesCaidByVersionAndBuildsCallbackFromConversionKey() {
+        MediaProcessorNetease netease = new MediaProcessorNetease(debug, SERVER);
+
+        Event event = netease.event(queries("davidia_id", "MC1", "davidia_event", EventCodes.CLICK,
+            "caid_list", "a_20230330,b_20250325", "caid_md5_list", "bmd5_20250325",
+            "conv", "CONV1", "req_id", "R1"));
+
+        assertThat(event.getQueries()).containsEntry("caid1", "b")
+            .containsEntry("caid1_md5", "bmd5")
+            .containsEntry("caid2", "a")
+            .doesNotContainKey("caid2_md5")
+            // conv 优先于 req_id,源字段移除
+            .containsEntry("davidia_callback", "http://conv.youdao.com/api/track?conv_ext=CONV1")
+            .doesNotContainKey("conv")
+            .containsEntry("req_id", "R1");
+        assertThat(netease.getEventUrl("MC1", EventCodes.CLICK)).startsWith("http://perf.example.com/api/open/event?davidia_media=netease&");
     }
 
     @Test
@@ -122,6 +147,60 @@ class MediaProcessorTest {
             .doesNotContainKey("value");
     }
 
+    // 有道的多笔购买靠 order_id 区分,不给它只收第一笔;conv_time 不给则按收到时刻记
+    @Test
+    void neteaseSendsOrderIdAndConversionTimeForPurchases() {
+        MediaProcessorNetease netease = new MediaProcessorNetease(debug, SERVER);
+
+        assertThat(sent(netease, EventCodes.APP_PAY, DEAD_CALLBACK))
+            .contains("conv_action=android_purchase")
+            .contains("order_id=1")
+            .contains("order_amount=1234")
+            // 有道的 conv_time 是毫秒,不是秒
+            .contains("conv_time=1726650000000");
+
+        // 非购买类转化不带订单参数,但时间照常带
+        assertThat(sent(netease, EventCodes.APP_ACTIVATE, DEAD_CALLBACK))
+            .contains("conv_action=android_activate")
+            .contains("conv_time=1726650000000")
+            .doesNotContain("order_id")
+            .doesNotContain("order_amount");
+    }
+
+    // 有道有 addtocart 与 credit,我们早有 2006/2011,此前一直没连上
+    @Test
+    void neteaseSendsAddToCartAndCredit() {
+        MediaProcessorNetease netease = new MediaProcessorNetease(debug, SERVER);
+        Event entry = entry(Map.of("davidia_callback", DEAD_CALLBACK, "idfa", "I1"));
+
+        // idfa 推断出 iOS,端前缀随之变化
+        assertThat(sent(netease, EventCodes.APP_ADD_TO_CART, DEAD_CALLBACK))
+            .contains("conv_action=android_addtocart")
+            .doesNotContain("order_amount");
+        assertThat(netease.callback(payConversion(EventCodes.APP_CREDIT), entry))
+            .isNotEqualTo(DeliveryResult.UNSUPPORTED);
+
+        // 页面侧属于有道另一套落地页 API,不能混进应用下载 API
+        assertThat(netease.callback(conversion(EventCodes.PAGE_ADD_TO_CART), entry))
+            .isEqualTo(DeliveryResult.UNSUPPORTED);
+        assertThat(netease.callback(conversion(EventCodes.PAGE_CREDIT), entry))
+            .isEqualTo(DeliveryResult.UNSUPPORTED);
+    }
+
+    // 有道的留存靠 retention_days 区分,文档取值范围 [2,30],所以十四日留存复用 retention
+    @Test
+    void neteaseSendsFourteenDayRetentionAsRetentionDays() {
+        MediaProcessorNetease netease = new MediaProcessorNetease(debug, SERVER);
+
+        assertThat(sent(netease, EventCodes.APP_RETENTION_14, DEAD_CALLBACK))
+            .contains("conv_action=android_retention")
+            .contains("retention_days=14");
+        // 次留是独立的转化事件,不带 retention_days
+        assertThat(sent(netease, EventCodes.APP_RETENTION_1, DEAD_CALLBACK))
+            .contains("conv_action=android_day1retention")
+            .doesNotContain("retention_days");
+    }
+
     @Test
     void qihooMapsOnlyKnownConversions() {
         MediaProcessor360 qihoo = new MediaProcessor360(debug, SERVER);
@@ -165,6 +244,33 @@ class MediaProcessorTest {
     private static Event conversion(String eventCode) {
         Event conversion = new Event();
         conversion.setEvent(eventCode);
+        return conversion;
+    }
+
+    // 回传前处理器会把地址打进 debugPrintService,据此读回实际发出的 URL。
+    // 地址指向本机关闭的端口,请求立刻被拒,不会真的联网
+    private String sent(MediaProcessor media, String eventCode, String callback) {
+        Event conversion = conversion(eventCode);
+        conversion.setId(1);
+        conversion.setAmount(new BigDecimal("1234"));
+        conversion.setTime(new Timestamp(1726650000000L));
+        // oaid 让有道推断出 Android
+        media.callback(conversion, entry(Map.of(
+            "davidia_callback", callback, "oaid", "O1", "trace_id", "T1")));
+
+        ArgumentCaptor<String> printed = ArgumentCaptor.forClass(String.class);
+        verify(debug, atLeastOnce()).println(printed.capture());
+        return printed.getAllValues().stream()
+            .filter(line -> line.startsWith("callbackB:"))
+            .reduce((first, last) -> last)
+            .orElseThrow();
+    }
+
+    private static Event payConversion(String eventCode) {
+        Event conversion = conversion(eventCode);
+        conversion.setId(1);
+        conversion.setAmount(new BigDecimal("1234"));
+        conversion.setTime(new Timestamp(1726650000000L));
         return conversion;
     }
 
