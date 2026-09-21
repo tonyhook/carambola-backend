@@ -51,6 +51,20 @@ class TrackProcessorTest {
     }
 
     @Test
+    void haoyouAppendsDeviceParamsAndDeliveryToken() {
+        Map<String, String> params = entryParams(new TrackProcessorHaoyou(debug, SERVER), EventCodes.CLICK,
+            "https://h.example.com/click/m|1?game_id=1", android());
+
+        // 只有一段的 trackCode 不按竖线拆
+        assertThat(params.get("<path>")).isEqualTo("https://h.example.com/click/m%7C1");
+        assertThat(params).containsEntry("game_id", "1")
+            .containsEntry("oaid", "O1")
+            .containsEntry("davidia_track", "haoyou")
+            .containsEntry("davidia_delivery", "tok")
+            .doesNotContainKey("idfa");
+    }
+
+    @Test
     void ownProtocolAcceptsOnlyKnownEventCodes() {
         TrackProcessorDavidia davidia = new TrackProcessorDavidia(debug, SERVER);
 
